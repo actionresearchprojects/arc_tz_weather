@@ -3,7 +3,7 @@
 Weather station dashboard for the ARC ecovillage near Mkuranga, Tanzania. Self-contained, static HTML dashboard for wind, solar radiation, and precipitation data from the Omnisense weather station (sensor ID `30B40014`).
 
 ## Primary Files
-- `build.py`: Orchestrator script. Loads CSV, calls modules, generates `index.html`. Contains the full HTML/CSS/JS template.
+- `build.py`: Orchestrator script. Loads CSV, calls modules, generates `index.html`. Contains full HTML/CSS/JS template.
 - `modules/common.py`: Shared utilities (CSV parsing, time helpers, colour palettes, data quality filters).
 - `modules/wind.py`: Wind rose, time series, diurnal, distribution, gust factor, calm periods, ventilation availability.
 - `modules/solar.py`: Solar radiation time series, daily insolation, diurnal, distribution, clearness index, peak solar hours.
