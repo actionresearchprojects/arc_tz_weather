@@ -17,4 +17,4 @@ jobs:
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${{ secrets.MAIN_SITE_PAT }}" \
             https://api.github.com/repos/actionresearchprojects/actionresearchprojects.github.io/dispatches \
-            -d '{"event_type":"sync-embedded","client_payload":{"source_repo":"arc_tz_weather"}}'
+            -d '{"event_type":"sync-embedded","client_payload":{"source_repo":"arc_weather"}}'
