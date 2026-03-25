@@ -146,46 +146,66 @@ def _build_wind_rain_coincidence(xdf):
         return {"id": "wind-rain", "title": "Wind-Rain Coincidence",
                 "title_sw": "Upepo na Mvua Wakati Mmoja", "data": [], "layout": {}}
 
-    # Wind speed bins
-    wind_bins = [0, 2, 5, 10, 15, 20, 999]
-    wind_labels = ["0-2", "2-5", "5-10", "10-15", "15-20", "20+"]
+    # Fine-grained bins covering the typical tropical coastal range
+    wind_edges = [0, 0.5, 1, 1.5, 2, 3, 4, 5, 7, 10, 14, 18, 25, 999]
+    rain_edges = [0, 0.2, 0.5, 1, 1.5, 2, 3, 5, 8, 12, 20, 999]
 
-    # Rain rate bins
-    rain_bins = [0, 2, 5, 10, 20, 50, 999]
-    rain_labels = ["0-2", "2-5", "5-10", "10-20", "20-50", "50+"]
+    def _make_labels(edges):
+        labels = []
+        for i in range(len(edges) - 1):
+            lo, hi = edges[i], edges[i + 1]
+            if hi == 999:
+                labels.append(f"{lo}+")
+            elif lo == int(lo) and hi == int(hi):
+                labels.append(f"{int(lo)}-{int(hi)}")
+            else:
+                labels.append(f"{lo}-{hi}")
+        return labels
 
-    total_rainy = len(raining)
+    wind_labels = _make_labels(wind_edges)
+    rain_labels = _make_labels(rain_edges)
 
-    # 2D histogram: percentage of all rainy periods in each cell
-    z_pct = []
-    text_vals = []
+    # 2D histogram
+    z = []
     for ri in range(len(rain_labels)):
-        row_pct = []
-        row_text = []
+        row = []
         for wi in range(len(wind_labels)):
             mask = (
-                (raining["avg_wind_kph"] >= wind_bins[wi]) &
-                (raining["avg_wind_kph"] < wind_bins[wi + 1]) &
-                (raining["precip_rate_mmh"] >= rain_bins[ri]) &
-                (raining["precip_rate_mmh"] < rain_bins[ri + 1])
+                (raining["avg_wind_kph"] >= wind_edges[wi]) &
+                (raining["avg_wind_kph"] < wind_edges[wi + 1]) &
+                (raining["precip_rate_mmh"] >= rain_edges[ri]) &
+                (raining["precip_rate_mmh"] < rain_edges[ri + 1])
             )
-            count = int(mask.sum())
-            pct = round(count / total_rainy * 100, 1) if total_rainy else 0
-            row_pct.append(pct)
-            row_text.append(f"{pct}%" if pct > 0 else "")
-        z_pct.append(row_pct)
-        text_vals.append(row_text)
+            row.append(int(mask.sum()))
+        z.append(row)
+
+    # Trim trailing all-zero columns (high wind speeds with no data)
+    n_wind = len(wind_labels)
+    while n_wind > 1 and all(z[ri][n_wind - 1] == 0 for ri in range(len(rain_labels))):
+        n_wind -= 1
+
+    # Trim trailing all-zero rows (high rain rates with no data)
+    n_rain = len(rain_labels)
+    while n_rain > 1 and all(z[n_rain - 1][wi] == 0 for wi in range(n_wind)):
+        n_rain -= 1
+
+    z = [row[:n_wind] for row in z[:n_rain]]
+    wind_labels = wind_labels[:n_wind]
+    rain_labels = rain_labels[:n_rain]
+
+    # Re-label last bins as "X+" since they now represent the tail of the distribution
+    lo_w = wind_edges[n_wind - 1]
+    wind_labels[-1] = f"{int(lo_w) if lo_w == int(lo_w) else lo_w}+"
+    lo_r = rain_edges[n_rain - 1]
+    rain_labels[-1] = f"{lo_r}+"
 
     traces = [{
         "type": "heatmap",
         "x": wind_labels,
         "y": rain_labels,
-        "z": z_pct,
-        "text": text_vals,
-        "texttemplate": "%{text}",
-        "textfont": {"size": 11},
-        "colorscale": "Blues",
-        "colorbar": {"title": "% of rainy<br>periods"},
+        "z": z,
+        "colorscale": "YlOrRd",
+        "colorbar": {"title": "Count"},
     }]
 
     layout = {

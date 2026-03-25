@@ -310,66 +310,6 @@ optgroup{font-weight:600;font-style:normal}
       <div id="day-input" class="hidden"><select id="day-select" style="width:100%"></select></div>
     </div>
 
-    <!-- Wind Controls -->
-    <div class="section" id="wind-controls">
-      <div class="section-title"><span data-i18n="windSettings">Wind Settings</span>
-        <span class="info-i" id="wind-info-icon">i</span>
-      </div>
-      <div class="info-tip-fixed" id="wind-info-tip"></div>
-      <div class="slider-row" id="calm-threshold-row">
-        <label><span data-i18n="calmThreshold">Calm threshold</span>:</label>
-        <input type="range" id="calm-threshold" min="0.5" max="10" step="0.5" value="3.5">
-        <span class="slider-value" id="calm-threshold-val">3.5 km/h</span>
-      </div>
-      <div class="control-row" id="direction-res-row">
-        <label><span data-i18n="directionRes">Direction resolution</span>:</label>
-        <select id="direction-res">
-          <option value="16">16 points</option>
-          <option value="8">8 points</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- Solar Controls -->
-    <div class="section hidden" id="solar-controls">
-      <div class="section-title"><span data-i18n="solarSettings">Solar Settings</span>
-        <span class="info-i" id="solar-info-icon">i</span>
-      </div>
-      <div class="info-tip-fixed" id="solar-info-tip"></div>
-      <div class="control-row">
-        <label><span data-i18n="latitude">Latitude</span>:
-          <input type="number" id="latitude-input" value="-7.065" step="0.001" style="width:80px">
-        </label>
-      </div>
-      <label class="cb-label">
-        <input type="checkbox" id="cb-clearsky" checked>
-        <span data-i18n="showClearSky">Show clear-sky reference</span>
-        <span class="info-i" id="clearsky-info-icon">i</span>
-      </label>
-      <div class="info-tip-fixed" id="clearsky-info-tip"></div>
-    </div>
-
-    <!-- Precipitation Controls -->
-    <div class="section hidden" id="precip-controls">
-      <div class="section-title"><span data-i18n="precipSettings">Precipitation Settings</span>
-        <span class="info-i" id="precip-info-icon">i</span>
-      </div>
-      <div class="info-tip-fixed" id="precip-info-tip"></div>
-      <div class="slider-row">
-        <label><span data-i18n="eventGap">Event gap tolerance</span>:</label>
-        <input type="range" id="event-gap" min="5" max="60" step="5" value="15">
-        <span class="slider-value" id="event-gap-val">15 min</span>
-      </div>
-    </div>
-
-    <!-- Cross-Variable Controls -->
-    <div class="section hidden" id="cross-controls">
-      <div class="section-title"><span data-i18n="crossSettings">Combined Settings</span>
-        <span class="info-i" id="cross-info-icon">i</span>
-      </div>
-      <div class="info-tip-fixed" id="cross-info-tip"></div>
-    </div>
-
     <!-- Stats Panel (populated by JS) -->
     <div class="stats-panel" id="stats-panel">
       <h4 data-i18n="statistics">Statistics</h4>
@@ -425,8 +365,6 @@ const state = {
   selectedMonth: null,
   selectedWeek: null,
   selectedDay: null,
-  calmThreshold: 3.5,
-  directionRes: 16,
   savedZoom: null,
 };
 
@@ -438,10 +376,6 @@ const I18N = {
     title: 'ARC Tanzania - Weather Station',
     chartType: 'Chart Type',
     periodSettings: 'Period Settings',
-    windSettings: 'Wind Settings',
-    solarSettings: 'Solar Settings',
-    precipSettings: 'Precipitation Settings',
-    crossSettings: 'Combined Settings',
     statistics: 'Statistics',
     range: 'Range',
     allTime: 'All time',
@@ -452,11 +386,6 @@ const I18N = {
     day: 'Day',
     from: 'From',
     to: 'To',
-    calmThreshold: 'Calm threshold',
-    directionRes: 'Direction resolution',
-    latitude: 'Latitude',
-    showClearSky: 'Show clear-sky reference',
-    eventGap: 'Event gap tolerance',
     downloadPng: 'Download PNG',
     windGroup: 'Wind',
     solarGroup: 'Solar',
@@ -519,10 +448,6 @@ const I18N = {
     infoPreStorm: 'Composite plot showing the average behaviour of wind speed and solar radiation around rain events. Created by aligning all detected rain events at t=0 (event start) and averaging. Shows whether there are reliable pre-storm signatures.',
     infoVentWin: 'For each hour of each day, classifies the ventilation condition as: Effective (green, adequate wind, no rain), Marginal (yellow, some wind or light rain), or Closed (red, heavy rain). This is the synthesis chart combining all three weather variables.',
     infoPeriod: 'Select a time period to filter the data. "All time" shows the complete dataset. Other options let you zoom into specific seasons, months, weeks, or individual days.',
-    infoWind: 'Controls for wind chart display. Wind speed is shown in km/h throughout. The calm threshold sets the minimum wind speed considered effective for natural ventilation.',
-    infoSolar: 'Controls for solar chart display. Latitude is used for clear-sky radiation calculations. The clear-sky reference line shows the theoretical maximum radiation for this latitude and day of year.',
-    infoPrecip: 'Controls for precipitation chart display. Event gap tolerance sets the maximum gap (in minutes) between rain readings before a new event is started.',
-    infoCross: 'Controls for combined analysis charts combining wind, rain, and solar data.',
     // Data freshness
     dataUpdated: 'Data updated',
     staleWarning: 'Data may be stale (older than 2 days)',
@@ -531,10 +456,6 @@ const I18N = {
     title: 'ARC Tanzania - Kituo cha Hali ya Hewa',
     chartType: 'Aina ya Chati',
     periodSettings: 'Mipangilio ya Kipindi',
-    windSettings: 'Mipangilio ya Upepo',
-    solarSettings: 'Mipangilio ya Jua',
-    precipSettings: 'Mipangilio ya Mvua',
-    crossSettings: 'Mipangilio ya Pamoja',
     statistics: 'Takwimu',
     range: 'Kipindi',
     allTime: 'Wakati wote',
@@ -545,11 +466,6 @@ const I18N = {
     day: 'Siku',
     from: 'Kutoka',
     to: 'Hadi',
-    calmThreshold: 'Kiwango cha utulivu',
-    directionRes: 'Usahihi wa mwelekeo',
-    latitude: 'Latitudi',
-    showClearSky: 'Onyesha rejea ya anga safi',
-    eventGap: 'Uvumilivu wa pengo la tukio',
     downloadPng: 'Pakua PNG',
     windGroup: 'Upepo',
     solarGroup: 'Jua',
@@ -655,16 +571,6 @@ function wireTooltip(iconId, tipId, textKey) {
 // ── Sidebar Visibility ───────────────────────────────────────────────────────
 function updateSidebarControls() {
   const ct = state.chartType;
-  const isWind = ct.startsWith('wind') || ct === 'diurnal-wind' || ct === 'gust-factor' || ct === 'calm-periods' || ct === 'ventilation-availability';
-  const isSolar = ct.startsWith('solar') || ct === 'daily-insolation' || ct === 'diurnal-solar' || ct === 'clearness-index' || ct === 'peak-solar-hours';
-  const isPrecip = ct.startsWith('cumulative') || ct.startsWith('daily-rain') || ct.startsWith('rainfall') || ct === 'diurnal-rainfall' || ct === 'dry-spells' || ct === 'rain-events';
-  const isCross = ct === 'driving-rain' || ct === 'wind-rain' || ct === 'solar-wind' || ct === 'pre-storm' || ct === 'ventilation-windows';
-
-  document.getElementById('wind-controls').classList.toggle('hidden', !isWind);
-  document.getElementById('solar-controls').classList.toggle('hidden', !isSolar);
-  document.getElementById('precip-controls').classList.toggle('hidden', !isPrecip);
-  document.getElementById('cross-controls').classList.toggle('hidden', !isCross);
-
   // Show/hide chart vs table
   const isTable = ct === 'rain-events';
   document.getElementById('chart').classList.toggle('hidden', isTable);
@@ -908,18 +814,6 @@ function applyLanguage() {
   document.querySelectorAll('select option[data-i18n]').forEach(el => {
     el.textContent = t(el.dataset.i18n);
   });
-  // Checkbox labels
-  const cbMap = {
-    'cb-clearsky': 'showClearSky',
-  };
-  for (const [id, key] of Object.entries(cbMap)) {
-    const cb = document.getElementById(id);
-    if (!cb) continue;
-    const lbl = cb.closest('label');
-    if (!lbl) continue;
-    const span = lbl.querySelector('span[data-i18n]');
-    if (span) span.textContent = t(key);
-  }
 }
 
 // ── Period Selectors ─────────────────────────────────────────────────────────
@@ -1025,20 +919,6 @@ document.getElementById('time-mode').addEventListener('change', function() {
   updatePlot();
 });
 
-document.getElementById('calm-threshold').addEventListener('input', function() {
-  state.calmThreshold = parseFloat(this.value);
-  document.getElementById('calm-threshold-val').textContent = this.value + ' km/h';
-});
-
-document.getElementById('event-gap').addEventListener('input', function() {
-  document.getElementById('event-gap-val').textContent = this.value + ' min';
-});
-
-document.getElementById('direction-res').addEventListener('change', function() {
-  state.directionRes = parseInt(this.value);
-  updatePlot();
-});
-
 // ── Initialization ───────────────────────────────────────────────────────────
 function init() {
   // Logo
@@ -1053,11 +933,6 @@ function init() {
   // Wire tooltips
   wireTooltip('chart-info-icon', 'chart-info-tip', CHART_INFO[state.chartType] || 'infoWindRose');
   wireTooltip('period-info-icon', 'period-info-tip', 'infoPeriod');
-  wireTooltip('wind-info-icon', 'wind-info-tip', 'infoWind');
-  wireTooltip('solar-info-icon', 'solar-info-tip', 'infoSolar');
-  wireTooltip('precip-info-icon', 'precip-info-tip', 'infoPrecip');
-  wireTooltip('cross-info-icon', 'cross-info-tip', 'infoCross');
-  wireTooltip('clearsky-info-icon', 'clearsky-info-tip', 'infoSolar');
 
   // Dynamic chart info tooltip
   const chartIcon = document.getElementById('chart-info-icon');
