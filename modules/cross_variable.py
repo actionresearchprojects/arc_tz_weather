@@ -154,10 +154,14 @@ def _build_wind_rain_coincidence(xdf):
     rain_bins = [0, 2, 5, 10, 20, 50, 999]
     rain_labels = ["0-2", "2-5", "5-10", "10-20", "20-50", "50+"]
 
-    # 2D histogram
-    z = []
+    total_rainy = len(raining)
+
+    # 2D histogram: percentage of all rainy periods in each cell
+    z_pct = []
+    text_vals = []
     for ri in range(len(rain_labels)):
-        row = []
+        row_pct = []
+        row_text = []
         for wi in range(len(wind_labels)):
             mask = (
                 (raining["avg_wind_kph"] >= wind_bins[wi]) &
@@ -165,16 +169,23 @@ def _build_wind_rain_coincidence(xdf):
                 (raining["precip_rate_mmh"] >= rain_bins[ri]) &
                 (raining["precip_rate_mmh"] < rain_bins[ri + 1])
             )
-            row.append(int(mask.sum()))
-        z.append(row)
+            count = int(mask.sum())
+            pct = round(count / total_rainy * 100, 1) if total_rainy else 0
+            row_pct.append(pct)
+            row_text.append(f"{pct}%" if pct > 0 else "")
+        z_pct.append(row_pct)
+        text_vals.append(row_text)
 
     traces = [{
         "type": "heatmap",
         "x": wind_labels,
         "y": rain_labels,
-        "z": z,
-        "colorscale": "YlOrRd",
-        "colorbar": {"title": "Count"},
+        "z": z_pct,
+        "text": text_vals,
+        "texttemplate": "%{text}",
+        "textfont": {"size": 11},
+        "colorscale": "Blues",
+        "colorbar": {"title": "% of rainy<br>periods"},
     }]
 
     layout = {

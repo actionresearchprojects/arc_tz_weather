@@ -33,6 +33,11 @@ from modules import wind, solar, precipitation, cross_variable
 OUTPUT_FILE = Path("index.html")
 LOGO_PATH = Path("logo/logotrim.png")
 
+# Building orientation in degrees from North (clockwise).
+# Set this once the actual building bearing is confirmed.
+# Used in Driving Rain Index facade calculations.
+BUILDING_ORIENTATION_DEG = 0  # TODO: replace with actual bearing
+
 
 def get_logo_b64():
     """Read logo file and return base64-encoded string and aspect ratio."""
@@ -311,14 +316,6 @@ optgroup{font-weight:600;font-style:normal}
         <span class="info-i" id="wind-info-icon">i</span>
       </div>
       <div class="info-tip-fixed" id="wind-info-tip"></div>
-      <div class="control-row">
-        <label><span data-i18n="speedUnit">Speed unit</span>:</label>
-        <select id="wind-unit">
-          <option value="kph">km/h</option>
-          <option value="ms">m/s</option>
-          <option value="knots">knots</option>
-        </select>
-      </div>
       <div class="slider-row" id="calm-threshold-row">
         <label><span data-i18n="calmThreshold">Calm threshold</span>:</label>
         <input type="range" id="calm-threshold" min="0.5" max="10" step="0.5" value="3.5">
@@ -371,12 +368,6 @@ optgroup{font-weight:600;font-style:normal}
         <span class="info-i" id="cross-info-icon">i</span>
       </div>
       <div class="info-tip-fixed" id="cross-info-tip"></div>
-      <div class="control-row">
-        <label><span data-i18n="buildingOrientation">Building orientation</span>:
-          <input type="number" id="building-orientation" value="0" min="0" max="359" style="width:60px">
-          &deg;
-        </label>
-      </div>
     </div>
 
     <!-- Stats Panel (populated by JS) -->
@@ -434,7 +425,6 @@ const state = {
   selectedMonth: null,
   selectedWeek: null,
   selectedDay: null,
-  windUnit: 'kph',
   calmThreshold: 3.5,
   directionRes: 16,
   savedZoom: null,
@@ -462,13 +452,11 @@ const I18N = {
     day: 'Day',
     from: 'From',
     to: 'To',
-    speedUnit: 'Speed unit',
     calmThreshold: 'Calm threshold',
     directionRes: 'Direction resolution',
     latitude: 'Latitude',
     showClearSky: 'Show clear-sky reference',
     eventGap: 'Event gap tolerance',
-    buildingOrientation: 'Building orientation',
     downloadPng: 'Download PNG',
     windGroup: 'Wind',
     solarGroup: 'Solar',
@@ -531,10 +519,10 @@ const I18N = {
     infoPreStorm: 'Composite plot showing the average behaviour of wind speed and solar radiation around rain events. Created by aligning all detected rain events at t=0 (event start) and averaging. Shows whether there are reliable pre-storm signatures.',
     infoVentWin: 'For each hour of each day, classifies the ventilation condition as: Effective (green, adequate wind, no rain), Marginal (yellow, some wind or light rain), or Closed (red, heavy rain). This is the synthesis chart combining all three weather variables.',
     infoPeriod: 'Select a time period to filter the data. "All time" shows the complete dataset. Other options let you zoom into specific seasons, months, weeks, or individual days.',
-    infoWind: 'Controls for wind chart display. Wind speed can be shown in km/h, m/s, or knots. The calm threshold sets the minimum wind speed considered effective for natural ventilation.',
+    infoWind: 'Controls for wind chart display. Wind speed is shown in km/h throughout. The calm threshold sets the minimum wind speed considered effective for natural ventilation.',
     infoSolar: 'Controls for solar chart display. Latitude is used for clear-sky radiation calculations. The clear-sky reference line shows the theoretical maximum radiation for this latitude and day of year.',
     infoPrecip: 'Controls for precipitation chart display. Event gap tolerance sets the maximum gap (in minutes) between rain readings before a new event is started.',
-    infoCross: 'Controls for combined analysis charts. Building orientation (degrees from North) sets the facade normals for driving rain index calculations.',
+    infoCross: 'Controls for combined analysis charts combining wind, rain, and solar data.',
     // Data freshness
     dataUpdated: 'Data updated',
     staleWarning: 'Data may be stale (older than 2 days)',
@@ -557,13 +545,11 @@ const I18N = {
     day: 'Siku',
     from: 'Kutoka',
     to: 'Hadi',
-    speedUnit: 'Kipimo cha kasi',
     calmThreshold: 'Kiwango cha utulivu',
     directionRes: 'Usahihi wa mwelekeo',
     latitude: 'Latitudi',
     showClearSky: 'Onyesha rejea ya anga safi',
     eventGap: 'Uvumilivu wa pengo la tukio',
-    buildingOrientation: 'Mwelekeo wa jengo',
     downloadPng: 'Pakua PNG',
     windGroup: 'Upepo',
     solarGroup: 'Jua',
@@ -617,18 +603,6 @@ function formatDuration(minutes) {
   const h = Math.floor(minutes / 60);
   const m = Math.round(minutes % 60);
   return m > 0 ? h + 'h ' + m + 'm' : h + 'h';
-}
-
-function convertSpeed(kph, unit) {
-  if (unit === 'ms') return kph / 3.6;
-  if (unit === 'knots') return kph / 1.852;
-  return kph;
-}
-
-function speedUnitLabel(unit) {
-  if (unit === 'ms') return 'm/s';
-  if (unit === 'knots') return 'knots';
-  return 'km/h';
 }
 
 function getChartById(id) {
@@ -1048,11 +1022,6 @@ document.getElementById('chart-select').addEventListener('change', function() {
 document.getElementById('time-mode').addEventListener('change', function() {
   state.timeMode = this.value;
   updateTimeModeVisibility();
-  updatePlot();
-});
-
-document.getElementById('wind-unit').addEventListener('change', function() {
-  state.windUnit = this.value;
   updatePlot();
 });
 
