@@ -160,8 +160,9 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Ubuntu',sans-serif;font-size:13px;background:#f8f9fa;color:#333;display:flex;flex-direction:column;height:100vh;overflow:hidden}
 #header{background:white;border-bottom:1px solid #ddd;padding:6px 12px;display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap;min-height:40px}
-#header img{height:28px}
-#header h1{font-size:15px;font-weight:500;color:#333;white-space:nowrap}
+#header h1{font-size:18px;font-weight:500;color:#222;margin-right:2px;white-space:nowrap}
+#logo{height:32px;width:auto;flex-shrink:0;vertical-align:middle}
+#header a{display:flex;align-items:center}
 #main{display:flex;flex:1;overflow:hidden;position:relative}
 #sidebar{width:300px;background:white;border-right:1px solid #ddd;overflow-y:auto;padding:10px;flex-shrink:0;display:flex;flex-direction:column;gap:8px;transition:transform 0.2s ease;z-index:10}
 #chart-area{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;position:relative}
@@ -191,15 +192,17 @@ label{font-size:12px;display:flex;align-items:center;gap:4px}
 #download-btn:disabled{opacity:0.6;cursor:default}
 #dl-spinner{display:none;width:16px;height:16px;border:2px solid rgba(40,167,69,0.3);border-top-color:#28a745;border-radius:50%;animation:dlspin 0.7s linear infinite;flex-shrink:0}
 @keyframes dlspin{to{transform:rotate(360deg)}}
-#lang-btn{background:none;border:1px solid #ccc;border-radius:4px;padding:3px 6px;cursor:pointer;display:flex;align-items:center;gap:4px;font-size:12px;margin-left:auto}
-#lang-btn:hover{background:#f0f0f0}
-#lang-menu{display:none;position:absolute;top:100%;right:0;background:white;border:1px solid #ddd;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,0.15);z-index:100;min-width:120px}
-#lang-menu.open{display:block}
-#lang-menu button{display:block;width:100%;text-align:left;padding:6px 12px;border:none;background:none;cursor:pointer;font-size:12px;font-family:'Ubuntu',sans-serif}
-#lang-menu button:hover{background:#f0f0f0}
-#lang-menu button.active{font-weight:700;color:#1f77b4}
-.lang-wrap{position:relative;margin-left:auto}
-#sidebar-toggle{display:none;position:fixed;top:50px;left:0;z-index:20;background:#fff;border:1px solid #ddd;border-left:none;border-radius:0 4px 4px 0;padding:8px 4px;cursor:pointer;font-size:16px}
+#lang-wrap { position: relative; flex-shrink: 0; }
+#lang-btn { background: none; border: 1px solid #ccc; border-radius: 4px; padding: 3px 6px; cursor: pointer; font-size: 16px; line-height: 1; color: #555; display: flex; align-items: center; }
+#lang-btn:hover { background: #f0f0f0; border-color: #aaa; }
+#lang-menu { display: none; position: absolute; right: 0; top: 100%; margin-top: 4px; background: white; border: 1px solid #ccc; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.12); z-index: 200; min-width: 110px; }
+#lang-menu.open { display: block; }
+#lang-menu button { display: block; width: 100%; text-align: left; padding: 6px 10px; border: none; background: none; cursor: pointer; font-size: 12px; font-family: inherit; color: #333; }
+#lang-menu button:hover { background: #f0f4ff; }
+#lang-menu button.active { font-weight: 600; color: #1f77b4; }
+.bar-divider{border-left:1px solid #ccc;height:20px;flex-shrink:0;margin:0 2px}
+#sidebar-toggle{display:none;background:none;border:1px solid #ccc;border-radius:4px;padding:4px 7px;cursor:pointer;font-size:16px;line-height:1;color:#555;flex-shrink:0}
+#sidebar-toggle:hover{background:#f0f0f0}
 #data-freshness{font-size:11px;color:#888;margin-top:auto;padding-top:8px;border-top:1px solid #eee}
 .stale-warn{color:#e65100;font-weight:500}
 #rain-events-table{width:100%;border-collapse:collapse;font-size:11px}
@@ -212,31 +215,40 @@ input[type="range"]{width:100%}
 .slider-row{display:flex;align-items:center;gap:6px}
 .slider-value{min-width:40px;text-align:right;font-weight:500;font-size:12px}
 optgroup{font-weight:600;font-style:normal}
+#sidebar-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.3);z-index:9}
+@media(max-width:900px){
+  #sidebar{width:190px;padding:8px}
+  #header h1{font-size:13px}
+}
 @media(max-width:680px){
-  #sidebar{position:fixed;top:40px;left:0;bottom:0;transform:translateX(-100%);width:280px;box-shadow:2px 0 8px rgba(0,0,0,0.1)}
-  #sidebar.open{transform:translateX(0)}
   #sidebar-toggle{display:block}
+  #sidebar{position:absolute;top:0;left:0;height:100%;width:300px;transform:translateX(-100%);box-shadow:2px 0 8px rgba(0,0,0,0.15)}
+  #sidebar.open{transform:translateX(0)}
+  #sidebar-backdrop.open{display:block}
+  #header{padding:5px 8px;gap:6px}
+  #header h1{font-size:12px}
+}
+@media(max-width:420px){
+  #header h1{display:none}
 }
 </style>
 </head>
 <body>
 
+<div id="sidebar-backdrop"></div>
 <div id="header">
-  <img id="logo" alt="ARC">
+  <button id="sidebar-toggle" aria-label="Toggle controls">&#9776;</button>
+  <a href="https://actionresearchprojects.net"><img id="logo" alt="ARC"></a>
   <h1 data-i18n="title">ARC Tanzania - Weather Station</h1>
-  <div class="lang-wrap">
-    <button id="lang-btn" onclick="document.getElementById('lang-menu').classList.toggle('open')">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10A15.3 15.3 0 0 1 12 2z"/></svg>
-      <span id="lang-label">EN</span>
-    </button>
+  <a href="https://actionresearchprojects.net/explainers/arc-tz-weather" target="_blank" class="info-i" id="about-info-icon" title="About this dashboard" style="text-decoration:none;margin-left:auto;">i</a>
+  <div id="lang-wrap">
+    <button id="lang-btn" onclick="document.getElementById('lang-menu').classList.toggle('open')" title="Language"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></button>
     <div id="lang-menu">
-      <button class="active" onclick="setLanguage('en')">English</button>
+      <button onclick="setLanguage('en')">English</button>
       <button onclick="setLanguage('sw')">Kiswahili</button>
     </div>
   </div>
 </div>
-
-<button id="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">&#9776;</button>
 
 <div id="main">
   <div id="sidebar">
@@ -796,7 +808,6 @@ function setLanguage(lang) {
       b.classList.toggle('active', b.textContent === (lang === 'sw' ? 'Kiswahili' : 'English'))
     );
   }
-  document.getElementById('lang-label').textContent = lang === 'sw' ? 'SW' : 'EN';
   document.documentElement.lang = lang === 'sw' ? 'sw' : 'en';
   applyLanguage();
   updatePlot();
@@ -871,6 +882,13 @@ function updateDataFreshness() {
 
   el.innerHTML = html;
 }
+
+// Close language menu on click outside
+document.addEventListener('click', e => {
+  const wrap = document.getElementById('lang-wrap');
+  const menu = document.getElementById('lang-menu');
+  if (menu && wrap && !wrap.contains(e.target)) menu.classList.remove('open');
+});
 
 // ── Download PNG ─────────────────────────────────────────────────────────────
 document.getElementById('download-btn').addEventListener('click', () => {
@@ -950,9 +968,28 @@ function init() {
   // Data freshness
   updateDataFreshness();
 
-  // Restore language
+  // Apply saved language preference and mark active button
   const savedLang = localStorage.getItem('arcWeatherLang') || 'en';
   if (savedLang !== 'en') setLanguage(savedLang);
+  else {
+    const menu = document.getElementById('lang-menu');
+    if (menu) menu.querySelector('button').classList.add('active');
+  }
+
+  // Sidebar toggle + backdrop
+  const toggle = document.getElementById('sidebar-toggle');
+  const sidebar = document.getElementById('sidebar');
+  const backdrop = document.getElementById('sidebar-backdrop');
+  function closeSidebar() { sidebar.classList.remove('open'); backdrop.classList.remove('open'); }
+  toggle.addEventListener('click', () => {
+    const isOpen = sidebar.classList.toggle('open');
+    backdrop.classList.toggle('open', isOpen);
+  });
+  backdrop.addEventListener('click', closeSidebar);
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 680) closeSidebar();
+    Plotly.relayout('chart', {autosize: true});
+  });
 
   // Initial render
   updatePlot();
