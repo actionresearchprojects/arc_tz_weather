@@ -167,15 +167,21 @@ body{font-family:'Ubuntu',sans-serif;font-size:13px;background:#f8f9fa;color:#33
 #sidebar{width:300px;background:white;border-right:1px solid #ddd;overflow-y:auto;padding:10px;flex-shrink:0;display:flex;flex-direction:column;gap:8px;transition:transform 0.2s ease;z-index:10}
 #chart-area{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;position:relative}
 #time-bar{background:white;border-bottom:1px solid #ddd;padding:6px 10px;display:flex;flex-direction:column;gap:4px;flex-shrink:0}
-#time-bar-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+#time-bar-top{display:flex;align-items:center;width:100%;gap:8px}
+#time-bar-left{flex:1;display:flex;align-items:center;gap:8px}
+#bar-title{font-size:14px;font-weight:600;color:#222;white-space:nowrap;text-align:center;padding:0 8px;overflow:hidden;text-overflow:ellipsis}
+#time-bar-right{flex:1;display:flex;align-items:center;gap:8px;justify-content:flex-end;flex-wrap:wrap}
 #chart{flex:1;min-height:0}
 .section{border:1px solid #e0e0e0;border-radius:6px;padding:8px;background:#fafafa}
 .section-title{font-weight:600;font-size:12px;color:#555;margin-bottom:6px;display:flex;align-items:center;gap:4px}
-select,input[type="date"],input[type="number"]{font-family:'Ubuntu',sans-serif;font-size:12px;padding:3px 6px;border:1px solid #ccc;border-radius:4px;background:white}
-select{cursor:pointer}
+select,button,input{font-family:inherit}
+select,input[type="date"],input[type="number"]{font-size:12px;padding:3px 5px;border:1px solid #ccc;border-radius:4px;background:white}
+select{cursor:pointer;max-width:100%}
+select:focus{outline:none;border-color:#4a90d9}
 label{font-size:12px;display:flex;align-items:center;gap:4px}
 .cb-label{display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;padding:2px 0}
 .control-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.control-row label{font-size:12px;color:#666;white-space:nowrap}
 .hidden{display:none!important}
 .info-i{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:#999;color:white;font-size:9px;font-style:italic;font-weight:700;cursor:help;flex-shrink:0;line-height:1;font-family:Georgia,'Times New Roman',serif}
 .info-i:hover{background:#666}
@@ -203,8 +209,7 @@ label{font-size:12px;display:flex;align-items:center;gap:4px}
 .bar-divider{border-left:1px solid #ccc;height:20px;flex-shrink:0;margin:0 2px}
 #sidebar-toggle{display:none;background:none;border:1px solid #ccc;border-radius:4px;padding:4px 7px;cursor:pointer;font-size:16px;line-height:1;color:#555;flex-shrink:0}
 #sidebar-toggle:hover{background:#f0f0f0}
-#data-freshness{font-size:11px;color:#888;margin-top:auto;padding-top:8px;border-top:1px solid #eee}
-.stale-warn{color:#e65100;font-weight:500}
+.stale-warn{color:#d4880f;font-size:11px;cursor:help}
 #rain-events-table{width:100%;border-collapse:collapse;font-size:11px}
 #rain-events-table th{background:#f0f0f0;padding:4px 6px;text-align:left;cursor:pointer;border-bottom:2px solid #ddd;position:sticky;top:0}
 #rain-events-table th:hover{background:#e0e0e0}
@@ -227,9 +232,16 @@ optgroup{font-weight:600;font-style:normal}
   #sidebar-backdrop.open{display:block}
   #header{padding:5px 8px;gap:6px}
   #header h1{font-size:12px}
+  #time-bar{padding:5px 8px;gap:3px}
+  #time-bar-top{gap:5px}
+  #bar-title{font-size:12px}
+  select{font-size:11px}
+  .cb-label{font-size:11px}
 }
 @media(max-width:420px){
   #header h1{display:none}
+  #download-btn{font-size:11px;padding:3px 7px}
+  input[type=date]{font-size:11px;max-width:110px}
 }
 </style>
 </head>
@@ -253,75 +265,6 @@ optgroup{font-weight:600;font-style:normal}
 <div id="main">
   <div id="sidebar">
 
-    <!-- Chart Type Selector -->
-    <div class="section">
-      <div class="section-title"><span data-i18n="chartType">Chart Type</span>
-        <span class="info-i" id="chart-info-icon">i</span>
-      </div>
-      <div id="chart-info-tip"></div>
-      <select id="chart-select" style="width:100%">
-        <optgroup label="Wind" data-i18n-label="windGroup">
-          <option value="wind-rose" data-i18n="windRose">Wind Rose</option>
-          <option value="wind-timeseries" data-i18n="windTimeSeries">Wind Speed (Time Series)</option>
-          <option value="diurnal-wind" data-i18n="diurnalWind">Diurnal Wind Pattern</option>
-          <option value="wind-distribution" data-i18n="windDistribution">Wind Speed Distribution</option>
-          <option value="gust-factor" data-i18n="gustFactor">Gust Factor</option>
-          <option value="calm-periods" data-i18n="calmPeriods">Calm Periods</option>
-          <option value="ventilation-availability" data-i18n="ventAvailability">Ventilation Availability</option>
-        </optgroup>
-        <optgroup label="Solar" data-i18n-label="solarGroup">
-          <option value="solar-timeseries" data-i18n="solarTimeSeries">Solar Radiation (Time Series)</option>
-          <option value="daily-insolation" data-i18n="dailyInsolation">Daily Insolation</option>
-          <option value="diurnal-solar" data-i18n="diurnalSolar">Diurnal Solar Pattern</option>
-          <option value="solar-distribution" data-i18n="solarDistribution">Solar Distribution</option>
-          <option value="clearness-index" data-i18n="clearnessIndex">Clearness Index</option>
-          <option value="peak-solar-hours" data-i18n="peakSolarHours">Peak Solar Hours</option>
-        </optgroup>
-        <optgroup label="Precipitation" data-i18n-label="precipGroup">
-          <option value="cumulative-rainfall" data-i18n="cumulativeRainfall">Cumulative Rainfall</option>
-          <option value="daily-rainfall" data-i18n="dailyRainfall">Daily Rainfall</option>
-          <option value="rainfall-intensity" data-i18n="rainfallIntensity">Rainfall Intensity</option>
-          <option value="diurnal-rainfall" data-i18n="diurnalRainfall">Diurnal Rainfall Pattern</option>
-          <option value="dry-spells" data-i18n="drySpells">Dry Spells</option>
-          <option value="rain-events" data-i18n="rainEvents">Rain Events</option>
-        </optgroup>
-        <optgroup label="Combined" data-i18n-label="combinedGroup">
-          <option value="driving-rain" data-i18n="drivingRain">Driving Rain Index</option>
-          <option value="wind-rain" data-i18n="windRain">Wind-Rain Coincidence</option>
-          <option value="solar-wind" data-i18n="solarWind">Solar-Wind Correlation</option>
-          <option value="pre-storm" data-i18n="preStorm">Pre-Storm Signatures</option>
-          <option value="ventilation-windows" data-i18n="ventWindows">Ventilation Windows</option>
-        </optgroup>
-      </select>
-    </div>
-
-    <!-- Period Settings -->
-    <div class="section">
-      <div class="section-title"><span data-i18n="periodSettings">Period Settings</span>
-        <span class="info-i" id="period-info-icon">i</span>
-      </div>
-      <div class="info-tip-fixed" id="period-info-tip"></div>
-      <div class="control-row">
-        <label><span data-i18n="range">Range</span>:</label>
-        <select id="time-mode">
-          <option value="all" data-i18n="allTime">All time</option>
-          <option value="between" data-i18n="betweenDates">Between dates</option>
-          <option value="season" data-i18n="season">Season</option>
-          <option value="month" data-i18n="month">Month</option>
-          <option value="week" data-i18n="week">Week</option>
-          <option value="day" data-i18n="day">Day</option>
-        </select>
-      </div>
-      <div id="between-inputs" class="control-row hidden">
-        <label><span data-i18n="from">From</span> <input type="date" id="date-start"></label>
-        <label><span data-i18n="to">To</span> <input type="date" id="date-end"></label>
-      </div>
-      <div id="season-input" class="hidden"><select id="season-select" style="width:100%"></select></div>
-      <div id="month-input" class="hidden"><select id="month-select" style="width:100%"></select></div>
-      <div id="week-input" class="hidden"><select id="week-select" style="width:100%"></select></div>
-      <div id="day-input" class="hidden"><select id="day-select" style="width:100%"></select></div>
-    </div>
-
     <!-- Stats Panel (populated by JS) -->
     <div class="stats-panel" id="stats-panel">
       <h4 data-i18n="statistics">Statistics</h4>
@@ -329,17 +272,79 @@ optgroup{font-weight:600;font-style:normal}
     </div>
 
     <!-- Data Freshness -->
-    <div id="data-freshness"></div>
+    <div style="margin-top:auto;padding-top:8px;border-top:1px solid #eee;display:flex;align-items:flex-start;gap:6px;">
+      <div id="data-freshness" style="font-size:10px;color:#888;line-height:1.6;flex:1"></div>
+      <a href="https://actionresearchprojects.net/explainers/data-flow" target="_blank" class="info-i" id="dataflow-info-icon" title="How data is collected" style="text-decoration:none;flex-shrink:0;margin-top:2px;">i</a>
+    </div>
   </div>
 
   <div id="chart-area">
     <div id="time-bar">
-      <div id="time-bar-row">
-        <span id="chart-title" style="font-weight:600;font-size:14px"></span>
-        <span style="flex:1"></span>
-        <button id="download-btn" data-i18n="downloadPng">Download PNG</button>
-        <div id="dl-spinner"></div>
+      <div id="time-bar-top">
+        <div id="time-bar-left">
+          <select id="chart-select">
+            <optgroup label="Wind" data-i18n-label="windGroup">
+              <option value="wind-rose" data-i18n="windRose">Wind Rose</option>
+              <option value="wind-timeseries" data-i18n="windTimeSeries">Wind Speed (Time Series)</option>
+              <option value="diurnal-wind" data-i18n="diurnalWind">Diurnal Wind Pattern</option>
+              <option value="wind-distribution" data-i18n="windDistribution">Wind Speed Distribution</option>
+              <option value="gust-factor" data-i18n="gustFactor">Gust Factor</option>
+              <option value="calm-periods" data-i18n="calmPeriods">Calm Periods</option>
+              <option value="ventilation-availability" data-i18n="ventAvailability">Ventilation Availability</option>
+            </optgroup>
+            <optgroup label="Solar" data-i18n-label="solarGroup">
+              <option value="solar-timeseries" data-i18n="solarTimeSeries">Solar Radiation (Time Series)</option>
+              <option value="daily-insolation" data-i18n="dailyInsolation">Daily Insolation</option>
+              <option value="diurnal-solar" data-i18n="diurnalSolar">Diurnal Solar Pattern</option>
+              <option value="solar-distribution" data-i18n="solarDistribution">Solar Distribution</option>
+              <option value="clearness-index" data-i18n="clearnessIndex">Clearness Index</option>
+              <option value="peak-solar-hours" data-i18n="peakSolarHours">Peak Solar Hours</option>
+            </optgroup>
+            <optgroup label="Precipitation" data-i18n-label="precipGroup">
+              <option value="cumulative-rainfall" data-i18n="cumulativeRainfall">Cumulative Rainfall</option>
+              <option value="daily-rainfall" data-i18n="dailyRainfall">Daily Rainfall</option>
+              <option value="rainfall-intensity" data-i18n="rainfallIntensity">Rainfall Intensity</option>
+              <option value="diurnal-rainfall" data-i18n="diurnalRainfall">Diurnal Rainfall Pattern</option>
+              <option value="dry-spells" data-i18n="drySpells">Dry Spells</option>
+              <option value="rain-events" data-i18n="rainEvents">Rain Events</option>
+            </optgroup>
+            <optgroup label="Combined" data-i18n-label="combinedGroup">
+              <option value="driving-rain" data-i18n="drivingRain">Driving Rain Index</option>
+              <option value="wind-rain" data-i18n="windRain">Wind-Rain Coincidence</option>
+              <option value="solar-wind" data-i18n="solarWind">Solar-Wind Correlation</option>
+              <option value="pre-storm" data-i18n="preStorm">Pre-Storm Signatures</option>
+              <option value="ventilation-windows" data-i18n="ventWindows">Ventilation Windows</option>
+            </optgroup>
+          </select>
+          <span class="info-i" id="chart-info-icon">i</span>
+          <div id="chart-info-tip"></div>
+        </div>
+        <span id="bar-title"></span>
+        <div id="time-bar-right">
+          <div class="control-row">
+            <label>Range:</label>
+            <select id="time-mode">
+              <option value="all" data-i18n="allTime">All time</option>
+              <option value="between" data-i18n="betweenDates">Between dates</option>
+              <option value="season" data-i18n="season">Season</option>
+              <option value="month" data-i18n="month">Month</option>
+              <option value="week" data-i18n="week">Week</option>
+              <option value="day" data-i18n="day">Day</option>
+            </select>
+          </div>
+          <div id="between-inputs" class="control-row hidden">
+            <label>From <input type="date" id="date-start"></label>
+            <label>To <input type="date" id="date-end"></label>
+          </div>
+          <div id="season-input" class="hidden"><select id="season-select"></select></div>
+          <div id="month-input" class="hidden"><select id="month-select"></select></div>
+          <div id="week-input" class="hidden"><select id="week-select"></select></div>
+          <div id="day-input" class="hidden"><select id="day-select"></select></div>
+          <button id="download-btn" data-i18n="downloadPng">Download PNG</button>
+          <div id="dl-spinner"></div>
+        </div>
       </div>
+      <div class="info-tip-fixed" id="period-info-tip"></div>
     </div>
     <div id="chart"></div>
     <div id="events-container" class="hidden">
@@ -389,15 +394,15 @@ const I18N = {
     chartType: 'Chart Type',
     periodSettings: 'Period Settings',
     statistics: 'Statistics',
-    range: 'Range',
+    range: 'Range:',
     allTime: 'All time',
     betweenDates: 'Between dates',
     season: 'Season',
     month: 'Month',
     week: 'Week',
     day: 'Day',
-    from: 'From',
-    to: 'To',
+    from: 'From ',
+    to: 'To ',
     downloadPng: 'Download PNG',
     windGroup: 'Wind',
     solarGroup: 'Solar',
@@ -469,15 +474,15 @@ const I18N = {
     chartType: 'Aina ya Chati',
     periodSettings: 'Mipangilio ya Kipindi',
     statistics: 'Takwimu',
-    range: 'Kipindi',
+    range: 'Kipindi:',
     allTime: 'Wakati wote',
     betweenDates: 'Kati ya tarehe',
     season: 'Msimu',
     month: 'Mwezi',
     week: 'Wiki',
     day: 'Siku',
-    from: 'Kutoka',
-    to: 'Hadi',
+    from: 'Kutoka ',
+    to: 'Hadi ',
     downloadPng: 'Pakua PNG',
     windGroup: 'Upepo',
     solarGroup: 'Jua',
@@ -702,7 +707,7 @@ function updatePlot() {
 
   const chartEl = document.getElementById('chart');
   const sel = document.getElementById('chart-select');
-  const titleEl = document.getElementById('chart-title');
+  const titleEl = document.getElementById('bar-title');
   titleEl.textContent = currentLang === 'sw' ? (chart.title_sw || chart.title) : chart.title;
 
   updateSidebarControls();
@@ -825,6 +830,23 @@ function applyLanguage() {
   document.querySelectorAll('select option[data-i18n]').forEach(el => {
     el.textContent = t(el.dataset.i18n);
   });
+  // Range: label
+  const tmSel = document.getElementById('time-mode');
+  if (tmSel) {
+    const row = tmSel.closest('.control-row');
+    if (row) {
+      const lbl = row.querySelector('label');
+      if (lbl && !lbl.querySelector('input')) lbl.textContent = t('range');
+    }
+  }
+  // From / To labels
+  const betweenDiv = document.getElementById('between-inputs');
+  if (betweenDiv) {
+    betweenDiv.querySelectorAll('label').forEach((lbl, i) => {
+      const input = lbl.querySelector('input');
+      if (input) lbl.replaceChildren(document.createTextNode(t(i === 0 ? 'from' : 'to')), input);
+    });
+  }
 }
 
 // ── Period Selectors ─────────────────────────────────────────────────────────
@@ -864,10 +886,8 @@ function updateDataFreshness() {
   const df = ALL_DATA.dataFreshness;
   if (!df) return;
   const el = document.getElementById('data-freshness');
-  let html = '<strong>' + t('dataUpdated') + ':</strong> ' + (df.fetchTime || 'Unknown');
-  html += '<br>' + df.rowCount + ' readings, ' + df.dateMin.slice(0, 10) + ' to ' + df.dateMax.slice(0, 10);
-
-  // Check staleness
+  const lines = [];
+  let warnHtml = '';
   if (df.fetchTime) {
     const parts = df.fetchTime.split(' ');
     if (parts.length >= 2) {
@@ -875,12 +895,13 @@ function updateDataFreshness() {
       const now = new Date();
       const diffDays = (now - fetchDate) / (1000 * 60 * 60 * 24);
       if (diffDays > 2) {
-        html += '<br><span class="stale-warn">\u26a0 ' + t('staleWarning') + '</span>';
+        warnHtml = ' <span class="stale-warn" title="' + t('staleWarning') + '">\u26a0</span>';
       }
     }
   }
-
-  el.innerHTML = html;
+  lines.push('Omnisense last updated: ' + (df.fetchTime || 'Unknown') + warnHtml);
+  lines.push(df.rowCount + ' readings, ' + df.dateMin.slice(0, 10) + ' to ' + df.dateMax.slice(0, 10));
+  el.innerHTML = lines.join('<br>');
 }
 
 // Close language menu on click outside
@@ -950,8 +971,6 @@ function init() {
 
   // Wire tooltips
   wireTooltip('chart-info-icon', 'chart-info-tip', CHART_INFO[state.chartType] || 'infoWindRose');
-  wireTooltip('period-info-icon', 'period-info-tip', 'infoPeriod');
-
   // Dynamic chart info tooltip
   const chartIcon = document.getElementById('chart-info-icon');
   const chartTip = document.getElementById('chart-info-tip');
