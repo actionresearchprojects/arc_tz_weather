@@ -32,8 +32,9 @@ jobs:
           cd /tmp/temp_humid
           git sparse-checkout set data/omnisense
           cd -
-          # Copy the latest CSV
+          # Copy the latest CSV (remove old ones first to prevent accumulation)
           mkdir -p data/omnisense
+          rm -f data/omnisense/omnisense_*.csv
           cp /tmp/temp_humid/data/omnisense/omnisense_*.csv data/omnisense/ 2>/dev/null || true
           # Remove legacy subfolder if copied
           rm -rf data/omnisense/legacy

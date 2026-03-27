@@ -178,7 +178,7 @@ select,button,input{font-family:inherit}
 select,input[type="date"],input[type="number"]{font-size:12px;padding:3px 5px;border:1px solid #ccc;border-radius:4px;background:white}
 select{cursor:pointer;max-width:100%}
 select:focus{outline:none;border-color:#4a90d9}
-label{font-size:12px;display:flex;align-items:center;gap:4px}
+label{font-size:12px}
 .cb-label{display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;padding:2px 0}
 .control-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .control-row label{font-size:12px;color:#666;white-space:nowrap}
@@ -193,6 +193,8 @@ label{font-size:12px;display:flex;align-items:center;gap:4px}
 .stats-row:last-child{border-bottom:none}
 .stats-label{color:#555}
 .stats-value{font-weight:500;color:#333}
+#chart-category{font-weight:600;font-size:13px;padding:3px 7px;border:1px solid #aaa;border-radius:4px;background:#f5f5f5}
+#chart-select{font-size:12px}
 #download-btn{padding:4px 10px;font-size:12px;border:none;border-radius:4px;cursor:pointer;background:#28a745;color:white;font-weight:500;white-space:nowrap}
 #download-btn:hover{background:#218838}
 #download-btn:disabled{opacity:0.6;cursor:default}
@@ -272,9 +274,8 @@ optgroup{font-weight:600;font-style:normal}
     </div>
 
     <!-- Data Freshness -->
-    <div style="margin-top:auto;padding-top:8px;border-top:1px solid #eee;display:flex;align-items:flex-start;gap:6px;">
-      <div id="data-freshness" style="font-size:10px;color:#888;line-height:1.6;flex:1"></div>
-      <a href="https://actionresearchprojects.net/explainers/data-flow" target="_blank" class="info-i" id="dataflow-info-icon" title="How data is collected" style="text-decoration:none;flex-shrink:0;margin-top:2px;">i</a>
+    <div style="margin-top:auto;padding-top:8px;border-top:1px solid #eee;">
+      <div id="data-freshness" style="font-size:10px;color:#888;line-height:1.6"></div>
     </div>
   </div>
 
@@ -282,39 +283,20 @@ optgroup{font-weight:600;font-style:normal}
     <div id="time-bar">
       <div id="time-bar-top">
         <div id="time-bar-left">
+          <select id="chart-category">
+            <option value="wind" data-i18n="windGroup">Wind</option>
+            <option value="solar" data-i18n="solarGroup">Solar</option>
+            <option value="precipitation" data-i18n="precipGroup">Precipitation</option>
+            <option value="combined" data-i18n="combinedGroup">Combined</option>
+          </select>
           <select id="chart-select">
-            <optgroup label="Wind" data-i18n-label="windGroup">
-              <option value="wind-rose" data-i18n="windRose">Wind Rose</option>
-              <option value="wind-timeseries" data-i18n="windTimeSeries">Wind Speed (Time Series)</option>
-              <option value="diurnal-wind" data-i18n="diurnalWind">Diurnal Wind Pattern</option>
-              <option value="wind-distribution" data-i18n="windDistribution">Wind Speed Distribution</option>
-              <option value="gust-factor" data-i18n="gustFactor">Gust Factor</option>
-              <option value="calm-periods" data-i18n="calmPeriods">Calm Periods</option>
-              <option value="ventilation-availability" data-i18n="ventAvailability">Ventilation Availability</option>
-            </optgroup>
-            <optgroup label="Solar" data-i18n-label="solarGroup">
-              <option value="solar-timeseries" data-i18n="solarTimeSeries">Solar Radiation (Time Series)</option>
-              <option value="daily-insolation" data-i18n="dailyInsolation">Daily Insolation</option>
-              <option value="diurnal-solar" data-i18n="diurnalSolar">Diurnal Solar Pattern</option>
-              <option value="solar-distribution" data-i18n="solarDistribution">Solar Distribution</option>
-              <option value="clearness-index" data-i18n="clearnessIndex">Clearness Index</option>
-              <option value="peak-solar-hours" data-i18n="peakSolarHours">Peak Solar Hours</option>
-            </optgroup>
-            <optgroup label="Precipitation" data-i18n-label="precipGroup">
-              <option value="cumulative-rainfall" data-i18n="cumulativeRainfall">Cumulative Rainfall</option>
-              <option value="daily-rainfall" data-i18n="dailyRainfall">Daily Rainfall</option>
-              <option value="rainfall-intensity" data-i18n="rainfallIntensity">Rainfall Intensity</option>
-              <option value="diurnal-rainfall" data-i18n="diurnalRainfall">Diurnal Rainfall Pattern</option>
-              <option value="dry-spells" data-i18n="drySpells">Dry Spells</option>
-              <option value="rain-events" data-i18n="rainEvents">Rain Events</option>
-            </optgroup>
-            <optgroup label="Combined" data-i18n-label="combinedGroup">
-              <option value="driving-rain" data-i18n="drivingRain">Driving Rain Index</option>
-              <option value="wind-rain" data-i18n="windRain">Wind-Rain Coincidence</option>
-              <option value="solar-wind" data-i18n="solarWind">Solar-Wind Correlation</option>
-              <option value="pre-storm" data-i18n="preStorm">Pre-Storm Signatures</option>
-              <option value="ventilation-windows" data-i18n="ventWindows">Ventilation Windows</option>
-            </optgroup>
+            <option value="wind-rose" data-i18n="windRose">Wind Rose</option>
+            <option value="wind-timeseries" data-i18n="windTimeSeries">Wind Speed (Time Series)</option>
+            <option value="diurnal-wind" data-i18n="diurnalWind">Diurnal Wind Pattern</option>
+            <option value="wind-distribution" data-i18n="windDistribution">Wind Speed Distribution</option>
+            <option value="gust-factor" data-i18n="gustFactor">Gust Factor</option>
+            <option value="calm-periods" data-i18n="calmPeriods">Calm Periods</option>
+            <option value="ventilation-availability" data-i18n="ventAvailability">Ventilation Availability</option>
           </select>
           <span class="info-i" id="chart-info-icon">i</span>
           <div id="chart-info-tip"></div>
@@ -569,6 +551,54 @@ const CHART_INFO = {
   'pre-storm': 'infoPreStorm',
   'ventilation-windows': 'infoVentWin',
 };
+
+const CATEGORY_CHARTS = {
+  wind: [
+    {value: 'wind-rose', i18n: 'windRose', en: 'Wind Rose'},
+    {value: 'wind-timeseries', i18n: 'windTimeSeries', en: 'Wind Speed (Time Series)'},
+    {value: 'diurnal-wind', i18n: 'diurnalWind', en: 'Diurnal Wind Pattern'},
+    {value: 'wind-distribution', i18n: 'windDistribution', en: 'Wind Speed Distribution'},
+    {value: 'gust-factor', i18n: 'gustFactor', en: 'Gust Factor'},
+    {value: 'calm-periods', i18n: 'calmPeriods', en: 'Calm Periods'},
+    {value: 'ventilation-availability', i18n: 'ventAvailability', en: 'Ventilation Availability'},
+  ],
+  solar: [
+    {value: 'solar-timeseries', i18n: 'solarTimeSeries', en: 'Solar Radiation (Time Series)'},
+    {value: 'daily-insolation', i18n: 'dailyInsolation', en: 'Daily Insolation'},
+    {value: 'diurnal-solar', i18n: 'diurnalSolar', en: 'Diurnal Solar Pattern'},
+    {value: 'solar-distribution', i18n: 'solarDistribution', en: 'Solar Distribution'},
+    {value: 'clearness-index', i18n: 'clearnessIndex', en: 'Clearness Index'},
+    {value: 'peak-solar-hours', i18n: 'peakSolarHours', en: 'Peak Solar Hours'},
+  ],
+  precipitation: [
+    {value: 'cumulative-rainfall', i18n: 'cumulativeRainfall', en: 'Cumulative Rainfall'},
+    {value: 'daily-rainfall', i18n: 'dailyRainfall', en: 'Daily Rainfall'},
+    {value: 'rainfall-intensity', i18n: 'rainfallIntensity', en: 'Rainfall Intensity'},
+    {value: 'diurnal-rainfall', i18n: 'diurnalRainfall', en: 'Diurnal Rainfall Pattern'},
+    {value: 'dry-spells', i18n: 'drySpells', en: 'Dry Spells'},
+    {value: 'rain-events', i18n: 'rainEvents', en: 'Rain Events'},
+  ],
+  combined: [
+    {value: 'driving-rain', i18n: 'drivingRain', en: 'Driving Rain Index'},
+    {value: 'wind-rain', i18n: 'windRain', en: 'Wind-Rain Coincidence'},
+    {value: 'solar-wind', i18n: 'solarWind', en: 'Solar-Wind Correlation'},
+    {value: 'pre-storm', i18n: 'preStorm', en: 'Pre-Storm Signatures'},
+    {value: 'ventilation-windows', i18n: 'ventWindows', en: 'Ventilation Windows'},
+  ],
+};
+
+function populateChartSelect(category) {
+  const sel = document.getElementById('chart-select');
+  sel.innerHTML = '';
+  const charts = CATEGORY_CHARTS[category] || [];
+  charts.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.value;
+    opt.textContent = t(c.i18n) || c.en;
+    opt.dataset.i18n = c.i18n;
+    sel.appendChild(opt);
+  });
+}
 
 // ── Tooltip Wiring ───────────────────────────────────────────────────────────
 function wireTooltip(iconId, tipId, textKey) {
@@ -946,6 +976,13 @@ document.getElementById('download-btn').addEventListener('click', () => {
 });
 
 // ── Event Handlers ───────────────────────────────────────────────────────────
+document.getElementById('chart-category').addEventListener('change', function() {
+  populateChartSelect(this.value);
+  state.chartType = document.getElementById('chart-select').value;
+  state.savedZoom = null;
+  updatePlot();
+});
+
 document.getElementById('chart-select').addEventListener('change', function() {
   state.chartType = this.value;
   state.savedZoom = null;
