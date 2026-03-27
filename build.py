@@ -295,7 +295,6 @@ optgroup{font-weight:600;font-style:normal}
             <option value="wind" data-i18n="windGroup">Wind</option>
             <option value="solar" data-i18n="solarGroup">Solar</option>
             <option value="precipitation" data-i18n="precipGroup">Precipitation</option>
-            <option value="combined" data-i18n="combinedGroup">Combined</option>
           </select>
           <select id="chart-select">
             <option value="wind-rose" data-i18n="windRose">Wind Rose</option>
@@ -562,6 +561,11 @@ const CHART_INFO = {
   'ventilation-windows': 'infoVentWin',
 };
 
+// SHELVED CHARTS (temporarily hidden; restore by adding back to the relevant category array below):
+// {value: 'wind-rain', i18n: 'windRain', en: 'Wind-Rain Coincidence'}          -- was: combined
+// {value: 'ventilation-windows', i18n: 'ventWindows', en: 'Ventilation Windows'} -- was: combined
+// {value: 'pre-storm', i18n: 'preStorm', en: 'Pre-Storm Signatures'}            -- was: precipitation (last)
+
 const CATEGORY_CHARTS = {
   wind: [
     {value: 'wind-rose', i18n: 'windRose', en: 'Wind Rose'},
@@ -579,21 +583,16 @@ const CATEGORY_CHARTS = {
     {value: 'solar-distribution', i18n: 'solarDistribution', en: 'Solar Distribution'},
     {value: 'clearness-index', i18n: 'clearnessIndex', en: 'Clearness Index'},
     {value: 'peak-solar-hours', i18n: 'peakSolarHours', en: 'Peak Solar Hours'},
+    {value: 'solar-wind', i18n: 'solarWind', en: 'Solar-Wind Correlation'},
   ],
   precipitation: [
+    {value: 'driving-rain', i18n: 'drivingRain', en: 'Driving Rain Index'},
     {value: 'cumulative-rainfall', i18n: 'cumulativeRainfall', en: 'Cumulative Rainfall'},
     {value: 'daily-rainfall', i18n: 'dailyRainfall', en: 'Daily Rainfall'},
     {value: 'rainfall-intensity', i18n: 'rainfallIntensity', en: 'Rainfall Intensity'},
     {value: 'diurnal-rainfall', i18n: 'diurnalRainfall', en: 'Diurnal Rainfall Pattern'},
     {value: 'dry-spells', i18n: 'drySpells', en: 'Dry Spells'},
     {value: 'rain-events', i18n: 'rainEvents', en: 'Rain Events'},
-  ],
-  combined: [
-    {value: 'driving-rain', i18n: 'drivingRain', en: 'Driving Rain Index'},
-    {value: 'wind-rain', i18n: 'windRain', en: 'Wind-Rain Coincidence'},
-    {value: 'solar-wind', i18n: 'solarWind', en: 'Solar-Wind Correlation'},
-    {value: 'pre-storm', i18n: 'preStorm', en: 'Pre-Storm Signatures'},
-    {value: 'ventilation-windows', i18n: 'ventWindows', en: 'Ventilation Windows'},
   ],
 };
 
