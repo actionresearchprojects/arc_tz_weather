@@ -555,9 +555,9 @@ optgroup{font-weight:600;font-style:normal}
     <div id="wind-series-controls" style="display:none">
       <div class="section">
         <div class="section-title">Series</div>
-        <label class="cb-label"><input type="checkbox" id="cb-wind-avg" checked onchange="updateWindSeries()"> Average Wind</label>
-        <label class="cb-label"><input type="checkbox" id="cb-wind-gust" onchange="updateWindSeries()"> Peak Gust</label>
-        <label class="cb-label" id="cb-wind-24h-label" style="display:none"><input type="checkbox" id="cb-wind-24h" onchange="updateWindSeries()"> 24hr Mean</label>
+        <label class="cb-label"><input type="checkbox" id="cb-wind-avg" checked onchange="updateWindSeries()"> <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#1f77b4;vertical-align:middle"></span> Average Wind</label>
+        <label class="cb-label"><input type="checkbox" id="cb-wind-gust" onchange="updateWindSeries()"> <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#ff7f0e;vertical-align:middle"></span> Peak Gust</label>
+        <label class="cb-label" id="cb-wind-24h-label" style="display:none"><input type="checkbox" id="cb-wind-24h" checked onchange="updateWindSeries()"> <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#d62728;vertical-align:middle"></span> 24hr Mean</label>
       </div>
       <hr class="divider">
     </div>
