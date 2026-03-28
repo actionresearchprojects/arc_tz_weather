@@ -11,7 +11,8 @@ import numpy as np
 
 from .common import (
     COMPASS_DIRS_16, COMPASS_DIRS_8, WIND_SPEED_BINS, WIND_SPEED_LABELS,
-    WIND_SPEED_COLORS, BEAUFORT_SCALE, VENTILATION_COLORS,
+    WIND_SPEED_COLORS, BEAUFORT_SCALE, VENTILATION_COLORS, WIND_CLASSIFICATIONS,
+    KN_TO_KPH, TIMEZONE,
     spike_filter, compass_bin, beaufort_number, weibull_fit, to_eat_ms,
     get_season_boundaries,
 )
@@ -71,8 +72,6 @@ def process(df):
         "medianSpeed": median_speed,
         "p95Speed": p95_speed,
         "prevailingDir": prevailing,
-        "weibullK": k_val,
-        "weibullC": c_val,
     }
 
     # ── 1. Wind Rose ──────────────────────────────────────────────────────
@@ -96,6 +95,9 @@ def process(df):
 
     # ── 7. Ventilation Availability ───────────────────────────────────────
     charts.append(_build_ventilation_availability(wdf))
+
+    # ── 8. Wind Speed Category Distribution ───────────────────────────────
+    charts.append(_build_wind_category_distribution(wdf))
 
     return {"charts": charts, "stats": stats}
 
@@ -531,7 +533,7 @@ def _build_ventilation_availability(wdf):
 
             # Convert to hours (assuming ~5-min intervals)
             interval_h = 5 / 60
-            dt = pd.Timestamp(date)
+            dt = pd.Timestamp(date).tz_localize(TIMEZONE)
             daily.append({
                 "date_ms": int(dt.timestamp() * 1000),
                 "effective_h": round(effective * interval_h, 1),
@@ -607,4 +609,57 @@ def _build_ventilation_availability(wdf):
         "thresholdData": threshold_data,
         "effectivePct": eff_pct,
         "defaultThreshold": default_thresh,
+    }
+
+
+def _build_wind_category_distribution(wdf):
+    """Build wind speed distribution by classification category (Beaufort default).
+
+    The JS always rebuilds this chart from raw data to support interactive
+    switching between classification systems and time denominators. This
+    Python function provides the initial fallback for the all-time Beaufort view.
+    """
+    speeds_kph = wdf["avg_wind_kph"].dropna().values
+    n_total = len(speeds_kph)
+
+    # Beaufort bands (thresholds in knots, converted to km/h)
+    bf_bands = WIND_CLASSIFICATIONS["beaufort"]["bands"]
+    labels = [b["label"] for b in bf_bands]
+    counts = []
+    for b in bf_bands:
+        lo_kph = b["lo"] * KN_TO_KPH
+        hi_kph = (b["hi"] or 9999) * KN_TO_KPH
+        count = int(((speeds_kph >= lo_kph) & (speeds_kph < hi_kph)).sum())
+        counts.append(count)
+
+    # Default: hours per day
+    hrs_per_day = [round(c / n_total * 24, 2) if n_total else 0 for c in counts]
+
+    # Sequential palette: blue (calm) -> red (severe), 10 steps
+    palette = [
+        "#313695", "#4575b4", "#74add1", "#abd9e9", "#e0f3f8",
+        "#fee090", "#fdae61", "#f46d43", "#d73027", "#a50026",
+    ]
+
+    traces = [{
+        "type": "bar",
+        "orientation": "h",
+        "name": "Hours per day",
+        "y": labels,
+        "x": hrs_per_day,
+        "marker": {"color": palette[:len(labels)]},
+    }]
+
+    layout = {
+        "xaxis": {"title": "Hours per day"},
+        "yaxis": {"autorange": "reversed", "title": ""},
+        "showlegend": False,
+    }
+
+    return {
+        "id": "wind-category-dist",
+        "title": "Wind Speed Categories",
+        "title_sw": "Makundi ya Kasi ya Upepo",
+        "data": traces,
+        "layout": layout,
     }

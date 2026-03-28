@@ -9,7 +9,7 @@ import pandas as pd
 import numpy as np
 
 from .common import (
-    SOLAR_COLORS, LATITUDE, LONGITUDE, to_eat_ms,
+    SOLAR_COLORS, LATITUDE, LONGITUDE, TIMEZONE, to_eat_ms,
     extraterrestrial_radiation, get_season_boundaries,
 )
 
@@ -98,7 +98,7 @@ def _compute_daily_insolation(sdf):
         doy = pd.Timestamp(date).timetuple().tm_yday
         daily.append({
             "date": date,
-            "date_ms": int(pd.Timestamp(date).timestamp() * 1000),
+            "date_ms": int(pd.Timestamp(date).tz_localize(TIMEZONE).timestamp() * 1000),
             "insolation_kwh": round(kwh, 3),
             "day_of_year": doy,
         })
@@ -355,7 +355,26 @@ def _build_solar_distribution(sdf):
 
 
 def _build_clearness_index(daily_kt):
-    """Build clearness index scatter plot."""
+    """Build clearness index scatter plot.
+
+    Thresholds are calibrated for a humid tropical coastal site (Mkuranga, ~7S).
+    Standard temperate-climate thresholds (clear > 0.65, overcast < 0.35) are
+    inappropriate here: even on a genuinely clear day, high precipitable water
+    vapour and marine aerosols from the Indian Ocean suppress the clear-sky Kt
+    ceiling to approximately 0.55-0.65. Using temperate thresholds causes clear
+    days to be systematically mis-classified as partly cloudy.
+
+    References:
+    - Saunier, Reddy & Kumar (1987), Solar Energy 38(3): 169-177: generalised
+      Liu-Jordan CDCs are not suitable for tropical locations; Kmax must be
+      derived from local data.
+    - Udo (2000), Solar Energy 69(1): 45-53: tropical Nigerian site (~7N, same
+      latitude band) confirms Liu-Jordan inapplicability; highest recorded
+      clear-sky Kt was 0.64 after rainfall cleared aerosols.
+    - Diabate, Blanc & Wald (2004), Solar Energy 76(6): 733-744: Tanzania's
+      coastal zone falls in a humid low-Kt climate class with monthly mean
+      Kt typically 0.45-0.55 during dry-season months.
+    """
     if daily_kt.empty:
         return {"id": "clearness-index", "title": "Clearness Index",
                 "title_sw": "Fahirisi ya Uwazi", "data": [], "layout": {}}
@@ -363,15 +382,10 @@ def _build_clearness_index(daily_kt):
     dates_ms = daily_kt["date_ms"].tolist()
     kt_vals = daily_kt["kt"].tolist()
 
-    # Color by category
-    colors = []
-    for kt in kt_vals:
-        if kt > 0.65:
-            colors.append("#2ca02c")  # clear
-        elif kt > 0.35:
-            colors.append("#ffbf00")  # partly cloudy
-        else:
-            colors.append("#4575b4")  # overcast
+    # Thresholds adjusted for humid tropical coastal climate (see docstring).
+    # Clear: Kt > 0.55, Partly cloudy: 0.25-0.55, Overcast: Kt <= 0.25
+    KT_CLEAR = 0.55
+    KT_OVERCAST = 0.25
 
     traces = [{
         "type": "scatter",
@@ -379,7 +393,7 @@ def _build_clearness_index(daily_kt):
         "name": "Clearness Index (Kt)",
         "x_ms": dates_ms,
         "y": kt_vals,
-        "marker": {"color": colors, "size": 8},
+        "marker": {"color": "#000000", "size": 8},
     }]
 
     layout = {
@@ -387,29 +401,29 @@ def _build_clearness_index(daily_kt):
         "xaxis": {"title": "Date (EAT)"},
         "shapes": [
             {"type": "rect", "x0": 0, "x1": 1, "xref": "paper",
-             "y0": 0.65, "y1": 1, "fillcolor": "rgba(44,160,44,0.1)",
+             "y0": KT_CLEAR, "y1": 1, "fillcolor": "rgba(44,160,44,0.1)",
              "line": {"width": 0}},
             {"type": "rect", "x0": 0, "x1": 1, "xref": "paper",
-             "y0": 0.35, "y1": 0.65, "fillcolor": "rgba(255,191,0,0.1)",
+             "y0": KT_OVERCAST, "y1": KT_CLEAR, "fillcolor": "rgba(255,191,0,0.1)",
              "line": {"width": 0}},
             {"type": "rect", "x0": 0, "x1": 1, "xref": "paper",
-             "y0": 0, "y1": 0.35, "fillcolor": "rgba(69,117,180,0.1)",
+             "y0": 0, "y1": KT_OVERCAST, "fillcolor": "rgba(69,117,180,0.1)",
              "line": {"width": 0}},
         ],
         "annotations": [
-            {"x": 1.02, "xref": "paper", "y": 0.82, "text": "Clear",
+            {"x": 1.02, "xref": "paper", "y": 0.77, "text": "Clear",
              "showarrow": False, "font": {"size": 10, "color": "#2ca02c"}},
-            {"x": 1.02, "xref": "paper", "y": 0.5, "text": "Partly Cloudy",
+            {"x": 1.02, "xref": "paper", "y": 0.4, "text": "Partly Cloudy",
              "showarrow": False, "font": {"size": 10, "color": "#b8860b"}},
-            {"x": 1.02, "xref": "paper", "y": 0.17, "text": "Overcast",
+            {"x": 1.02, "xref": "paper", "y": 0.12, "text": "Overcast",
              "showarrow": False, "font": {"size": 10, "color": "#4575b4"}},
         ],
     }
 
     # Sky condition distribution
-    clear_pct = round((daily_kt["kt"] > 0.65).sum() / len(daily_kt) * 100, 1)
-    partly_pct = round(((daily_kt["kt"] > 0.35) & (daily_kt["kt"] <= 0.65)).sum() / len(daily_kt) * 100, 1)
-    overcast_pct = round((daily_kt["kt"] <= 0.35).sum() / len(daily_kt) * 100, 1)
+    clear_pct = round((daily_kt["kt"] > KT_CLEAR).sum() / len(daily_kt) * 100, 1)
+    partly_pct = round(((daily_kt["kt"] > KT_OVERCAST) & (daily_kt["kt"] <= KT_CLEAR)).sum() / len(daily_kt) * 100, 1)
+    overcast_pct = round((daily_kt["kt"] <= KT_OVERCAST).sum() / len(daily_kt) * 100, 1)
 
     return {
         "id": "clearness-index",
@@ -445,19 +459,6 @@ def _build_peak_solar_hours(daily_df):
     layout = {
         "yaxis": {"title": "Peak Solar Hours"},
         "xaxis": {"title": "Date (EAT)"},
-        "shapes": [{
-            "type": "line",
-            "x0": 0, "x1": 1, "xref": "paper",
-            "y0": 5.25, "y1": 5.25,
-            "line": {"color": "red", "width": 1, "dash": "dash"},
-        }],
-        "annotations": [{
-            "x": 1, "xref": "paper", "y": 5.25,
-            "text": "Coastal Tanzania typical (5-5.5 PSH)",
-            "showarrow": False,
-            "xanchor": "right",
-            "font": {"size": 10, "color": "red"},
-        }],
     }
 
     return {

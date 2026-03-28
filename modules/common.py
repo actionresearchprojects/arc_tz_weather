@@ -4,7 +4,7 @@ CSV parsing, time helpers, colour palettes, data quality filters.
 """
 
 import math
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -16,21 +16,99 @@ LATITUDE = -7.065   # ARC ecovillage near Mkuranga
 LONGITUDE = 39.18
 SOLAR_CONSTANT = 1361  # W/m2
 
-# ── Beaufort Scale ────────────────────────────────────────────────────────────
+# ── Beaufort Scale (WMO definition, classified in knots) ──────────────────────
+# The Beaufort scale is defined in knots. All other units are derived using the
+# exact conversion factors below to avoid boundary errors.
+#
+# Exact conversion factors (from 1 nautical mile = 1852 m exactly):
+#   1 kn = 463/250 km/h   (= 1.852 km/h, exact rational value)
+#   1 kn = 463/900 m/s    (= 0.51444... m/s, exact rational value)
+KN_TO_KPH = 463 / 250   # km/h per knot
+KN_TO_MS  = 463 / 900   # m/s per knot
+KPH_TO_KN = 250 / 463   # knots per km/h
+MS_TO_KN  = 900 / 463   # knots per m/s
+
+# Thresholds in knots (WMO integer boundaries). range_kn is [lo, hi).
 BEAUFORT_SCALE = {
-    0: {"range": (0, 1), "label": "Calm"},
-    1: {"range": (1, 6), "label": "Light air"},
-    2: {"range": (6, 12), "label": "Light breeze"},
-    3: {"range": (12, 20), "label": "Gentle breeze"},
-    4: {"range": (20, 29), "label": "Moderate breeze"},
-    5: {"range": (29, 39), "label": "Fresh breeze"},
-    6: {"range": (39, 50), "label": "Strong breeze"},
-    7: {"range": (50, 62), "label": "Near gale"},
-    8: {"range": (62, 75), "label": "Gale"},
-    9: {"range": (75, 89), "label": "Strong gale"},
-    10: {"range": (89, 103), "label": "Storm"},
-    11: {"range": (103, 118), "label": "Violent storm"},
-    12: {"range": (118, 999), "label": "Hurricane"},
+    0:  {"range_kn": (0,   1),   "label": "Calm"},
+    1:  {"range_kn": (1,   4),   "label": "Light air"},
+    2:  {"range_kn": (4,   7),   "label": "Light breeze"},
+    3:  {"range_kn": (7,  11),   "label": "Gentle breeze"},
+    4:  {"range_kn": (11, 17),   "label": "Moderate breeze"},
+    5:  {"range_kn": (17, 22),   "label": "Fresh breeze"},
+    6:  {"range_kn": (22, 28),   "label": "Strong breeze"},
+    7:  {"range_kn": (28, 34),   "label": "Near gale"},
+    8:  {"range_kn": (34, 41),   "label": "Gale"},
+    9:  {"range_kn": (41, 48),   "label": "Strong gale"},
+    10: {"range_kn": (48, 56),   "label": "Storm"},
+    11: {"range_kn": (56, 64),   "label": "Violent storm"},
+    12: {"range_kn": (64, 999),  "label": "Hurricane force"},
+}
+
+# ── Wind Classification Systems ─────────────────────────────────────────────
+# All systems defined in their original published units.
+# Use the conversion constants above to convert to the working unit at runtime.
+#
+# native_unit: 'kn' = knots, 'ms' = m/s, 'computed' = derived from dataset.
+# bands: list of {label, lo, hi} where hi=None means no upper limit.
+WIND_CLASSIFICATIONS = {
+    "beaufort": {
+        "label": "Beaufort",
+        "native_unit": "kn",
+        "source": "WMO/Beaufort 1805",
+        "notes": "Sea-level scale; Bf 9-12 merged into Severe+ for pedestrian relevance. Force numbers available as metadata.",
+        "bands": [
+            {"label": "Calm",            "lo": 0,  "hi": 1,    "force": 0},
+            {"label": "Light Air",       "lo": 1,  "hi": 4,    "force": 1},
+            {"label": "Light Breeze",    "lo": 4,  "hi": 7,    "force": 2},
+            {"label": "Gentle Breeze",   "lo": 7,  "hi": 11,   "force": 3},
+            {"label": "Moderate Breeze", "lo": 11, "hi": 17,   "force": 4},
+            {"label": "Fresh Breeze",    "lo": 17, "hi": 22,   "force": 5},
+            {"label": "Strong Breeze",   "lo": 22, "hi": 28,   "force": 6},
+            {"label": "Near Gale",       "lo": 28, "hi": 34,   "force": 7},
+            {"label": "Gale",            "lo": 34, "hi": 41,   "force": 8},
+            {"label": "Severe+",         "lo": 41, "hi": None, "force": "9+"},
+        ],
+    },
+    "lawson": {
+        "label": "Lawson 2001",
+        "native_unit": "ms",
+        "source": "Lawson T.V., 2001, pedestrian comfort criteria, assessed at 1.5m height",
+        "notes": "Upper-bound thresholds. Use this version, not LDDC.",
+        "bands": [
+            {"label": "Sitting",          "lo": 0,  "hi": 4},
+            {"label": "Standing",         "lo": 4,  "hi": 6},
+            {"label": "Strolling",        "lo": 6,  "hi": 8},
+            {"label": "Business Walking", "lo": 8,  "hi": 10},
+            {"label": "Uncomfortable",    "lo": 10, "hi": None},
+        ],
+    },
+    "davenport": {
+        "label": "Davenport",
+        "native_unit": "ms",
+        "source": "Davenport A.G., 1975, first published pedestrian wind comfort criterion, exceedance probability 1.5%",
+        "notes": "Upper-bound thresholds.",
+        "bands": [
+            {"label": "Long Sitting",    "lo": 0,   "hi": 3.6},
+            {"label": "Short Sitting",   "lo": 3.6, "hi": 5.3},
+            {"label": "Walking Quietly", "lo": 5.3, "hi": 7.6},
+            {"label": "Walking Fast",    "lo": 7.6, "hi": 9.8},
+            {"label": "Uncomfortable",   "lo": 9.8, "hi": None},
+        ],
+    },
+    "percentile": {
+        "label": "Percentiles",
+        "native_unit": "computed",
+        "source": "WMO climatological quintile practice",
+        "notes": "Boundaries computed at runtime from the full available dataset. Quintile-based: P20, P50, P80, P95.",
+        "bands": [
+            {"label": "Calm",        "percentile_hi": 20},
+            {"label": "Light",       "percentile_lo": 20, "percentile_hi": 50},
+            {"label": "Moderate",    "percentile_lo": 50, "percentile_hi": 80},
+            {"label": "Strong",      "percentile_lo": 80, "percentile_hi": 95},
+            {"label": "Exceptional", "percentile_lo": 95},
+        ],
+    },
 }
 
 # ── 16-point Compass ─────────────────────────────────────────────────────────
@@ -228,10 +306,15 @@ def compass_bin(degrees, n_points=16):
 
 
 def beaufort_number(speed_kph):
-    """Return the Beaufort number for a given wind speed in km/h."""
+    """Return the Beaufort number for a given wind speed in km/h.
+
+    Classification is performed in knots (WMO definition) to avoid
+    boundary errors from rounded secondary-unit thresholds.
+    """
+    speed_kn = speed_kph * KPH_TO_KN
     for num, info in BEAUFORT_SCALE.items():
-        lo, hi = info["range"]
-        if lo <= speed_kph < hi:
+        lo, hi = info["range_kn"]
+        if lo <= speed_kn < hi:
             return num
     return 12
 
@@ -338,8 +421,11 @@ def build_available_periods(df):
         key = (d.year, s_idx)
         if key not in seen_seasons:
             seen_seasons.add(key)
+            _MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+            m_first = _MONTH_ABBR[SEASONS[s_idx]['months'][0] - 1]
+            m_last  = _MONTH_ABBR[SEASONS[s_idx]['months'][-1] - 1]
             seasons.append({
-                "label": f"{s_name} ({SEASONS[s_idx]['months'][0]}-{SEASONS[s_idx]['months'][-1]}) {d.year}",
+                "label": f"{s_name} ({m_first}\u2013{m_last}) {d.year}",
                 "year": d.year, "season": s_idx
             })
 
@@ -352,7 +438,7 @@ def build_available_periods(df):
         if key not in seen_weeks:
             seen_weeks.add(key)
             weeks.append({
-                "label": f"Week {iso_week}, {iso_year}",
+                "label": "W/s " + date.fromisocalendar(iso_year, iso_week, 1).strftime("%d/%m/%y"),
                 "year": iso_year, "week": iso_week
             })
 

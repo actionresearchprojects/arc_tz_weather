@@ -7,7 +7,7 @@ import pandas as pd
 import numpy as np
 
 from .common import (
-    RAIN_INTENSITY_COLORS, RAIN_DAILY_COLORS,
+    RAIN_INTENSITY_COLORS, RAIN_DAILY_COLORS, TIMEZONE,
     detect_precip_resets, to_eat_ms, get_season_boundaries, compass_bin,
 )
 
@@ -89,17 +89,21 @@ def _compute_daily_rainfall(pdf):
         total = group["precip_incr"].sum()
         daily.append({
             "date": date,
-            "date_ms": int(pd.Timestamp(date).timestamp() * 1000),
+            "date_ms": int(pd.Timestamp(date).tz_localize(TIMEZONE).timestamp() * 1000),
             "total_mm": round(float(total), 2),
         })
     return daily
 
 
-def _detect_rain_events(pdf, gap_tolerance_min=15):
+def _detect_rain_events(pdf, gap_tolerance_min=15, min_depth_mm=0.5):
     """Detect rain events by grouping consecutive readings with rate > 0.
 
-    Allows gaps of up to gap_tolerance_min minutes.
+    Allows gaps of up to gap_tolerance_min minutes. Events with total depth
+    below min_depth_mm (WMO trace threshold) are excluded.
     """
+    # Compute median sampling interval for minimum duration fallback
+    median_interval_min = pdf["timestamp"].diff().dt.total_seconds().median() / 60
+
     raining = pdf["precip_rate_mmh"] > 0
     events = []
     in_event = False
@@ -127,19 +131,23 @@ def _detect_rain_events(pdf, gap_tolerance_min=15):
                 in_event = False
                 event_data = pdf.iloc[event_rows[0]:last_rain_idx + 1]
                 if len(event_data) > 0:
-                    events.append(_summarize_event(event_data, pdf))
+                    summary = _summarize_event(event_data, pdf, median_interval_min)
+                    if summary["total_mm"] >= min_depth_mm:
+                        events.append(summary)
                 event_rows = []
 
     # Handle event at end of data
     if in_event and event_rows:
         event_data = pdf.iloc[event_rows[0]:last_rain_idx + 1]
         if len(event_data) > 0:
-            events.append(_summarize_event(event_data, pdf))
+            summary = _summarize_event(event_data, pdf, median_interval_min)
+            if summary["total_mm"] >= min_depth_mm:
+                events.append(summary)
 
     return events
 
 
-def _summarize_event(event_data, full_df):
+def _summarize_event(event_data, full_df, min_duration_min=5):
     """Summarize a single rain event."""
     start = event_data["timestamp"].iloc[0]
     end = event_data["timestamp"].iloc[-1]

@@ -23,14 +23,14 @@ jobs:
       - name: Install build dependencies
         run: pip install pandas pytz
 
-      - name: Copy latest Omnisense CSV from sibling repo
+      - name: Copy latest Omnisense CSV and cycle data from sibling repo
         run: |
-          # Clone just the data/omnisense directory from arc_tz_temp_humid
+          # Clone just the data/omnisense and data/cycles directories from arc_tz_temp_humid
           git clone --depth 1 --filter=blob:none --sparse \
             https://x-access-token:${{ secrets.MAIN_SITE_PAT }}@github.com/actionresearchprojects/arc_tz_temp_humid.git \
             /tmp/temp_humid
           cd /tmp/temp_humid
-          git sparse-checkout set data/omnisense
+          git sparse-checkout set data/omnisense data/cycles
           cd -
           # Copy the latest CSV (remove old ones first to prevent accumulation)
           mkdir -p data/omnisense
@@ -39,6 +39,12 @@ jobs:
           # Remove legacy subfolder if copied
           rm -rf data/omnisense/legacy
           ls -la data/omnisense/
+          # Copy cycle data (ENSO/IOD/MJO) — arc_tz_temp_humid fetches these daily
+          mkdir -p data/cycles/enso data/cycles/iod data/cycles/mjo
+          cp /tmp/temp_humid/data/cycles/enso/oni.csv data/cycles/enso/ 2>/dev/null || true
+          cp /tmp/temp_humid/data/cycles/iod/iod_1.txt data/cycles/iod/ 2>/dev/null || true
+          cp /tmp/temp_humid/data/cycles/mjo/romi.cpcolr.1x.txt data/cycles/mjo/ 2>/dev/null || true
+          ls -la data/cycles/enso/ data/cycles/iod/ data/cycles/mjo/
 
       - name: Rebuild dashboard
         run: python build.py
@@ -48,7 +54,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "actions@users.noreply.github.com"
-          git add data/omnisense/ index.html
+          git add data/omnisense/ data/cycles/ index.html
           if git diff --cached --quiet; then
             echo "changed=false" >> $GITHUB_OUTPUT
           else
