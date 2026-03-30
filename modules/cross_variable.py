@@ -10,7 +10,7 @@ import pandas as pd
 import numpy as np
 
 from .common import (
-    VENTILATION_COLORS, to_eat_ms, compass_bin,
+    VENTILATION_COLORS, CALM_THRESHOLD_KPH, to_eat_ms, compass_bin,
     get_season_boundaries,
 )
 
@@ -59,7 +59,7 @@ def process(df, rain_events=None):
 def _build_driving_rain_index(xdf):
     """Build Driving Rain Index polar chart and time series."""
     # Only readings with both wind and rain
-    wr = xdf[(xdf["avg_wind_kph"] > 0) & (xdf["precip_rate_mmh"] > 0)].copy()
+    wr = xdf[(xdf["avg_wind_kph"] > CALM_THRESHOLD_KPH) & (xdf["precip_rate_mmh"] > 0)].copy()
 
     if len(wr) == 0:
         return {"id": "driving-rain", "title": "Driving Rain Index",

@@ -301,14 +301,14 @@ def _build_intensity_distribution(pdf):
 
 
 def _build_diurnal_rainfall(pdf):
-    """Build diurnal rainfall pattern: mean hourly rainfall + rain probability."""
+    """Build diurnal rainfall pattern: mean hourly rainfall + rain frequency."""
     pdf_c = pdf.copy()
     pdf_c["hour"] = pdf_c["timestamp"].dt.hour
 
     # Mean rainfall per hour (from incremental)
     hourly_rain = pdf_c.groupby("hour")["precip_incr"].mean()
 
-    # Rain probability by hour
+    # Rain frequency by hour
     hourly_prob = pdf_c.groupby("hour").apply(
         lambda g: (g["precip_rate_mmh"] > 0).sum() / len(g) * 100
     )
@@ -328,7 +328,7 @@ def _build_diurnal_rainfall(pdf):
         {
             "type": "scatter",
             "mode": "lines+markers",
-            "name": "Rain Probability (%)",
+            "name": "Rain Frequency (%)",
             "x": hours,
             "y": rain_probs,
             "yaxis": "y2",
@@ -341,7 +341,7 @@ def _build_diurnal_rainfall(pdf):
         "xaxis": {"title": "Hour of Day (EAT)", "dtick": 1},
         "yaxis": {"title": "Mean Rainfall (mm)"},
         "yaxis2": {
-            "title": "Rain Probability (%)",
+            "title": "Rain Frequency (%)",
             "overlaying": "y",
             "side": "right",
             "range": [0, max(rain_probs) * 1.2] if rain_probs else [0, 100],

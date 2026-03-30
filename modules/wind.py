@@ -12,7 +12,7 @@ import numpy as np
 from .common import (
     COMPASS_DIRS_16, COMPASS_DIRS_8, WIND_SPEED_BINS, WIND_SPEED_LABELS,
     WIND_SPEED_COLORS, BEAUFORT_SCALE, VENTILATION_COLORS, WIND_CLASSIFICATIONS,
-    KN_TO_KPH, TIMEZONE,
+    KN_TO_KPH, TIMEZONE, CALM_THRESHOLD_KPH,
     spike_filter, compass_bin, beaufort_number, weibull_fit, to_eat_ms,
     get_season_boundaries,
 )
@@ -40,10 +40,10 @@ def process(df):
 
     # ── Summary Statistics ────────────────────────────────────────────────
     total_readings = len(wdf)
-    calm_readings = (wdf["avg_wind_kph"] == 0).sum()
+    calm_readings = (wdf["avg_wind_kph"] <= CALM_THRESHOLD_KPH).sum()
     calm_pct = round(calm_readings / total_readings * 100, 1) if total_readings else 0
 
-    non_calm = wdf[wdf["avg_wind_kph"] > 0]
+    non_calm = wdf[wdf["avg_wind_kph"] > CALM_THRESHOLD_KPH]
     mean_speed = round(wdf["avg_wind_kph"].mean(), 1)
     mean_speed_noncalm = round(non_calm["avg_wind_kph"].mean(), 1) if len(non_calm) else 0
     max_speed = round(wdf["avg_wind_kph"].max(), 1)
@@ -108,9 +108,9 @@ def _build_wind_rose(wdf, n_points):
     dir_labels = [d[0] for d in dirs]
     col = "compass_16" if n_points == 16 else "compass_8"
 
-    non_calm = wdf[wdf["avg_wind_kph"] > 0].copy()
+    non_calm = wdf[wdf["avg_wind_kph"] > CALM_THRESHOLD_KPH].copy()
     total = len(wdf)
-    calm_pct = round((wdf["avg_wind_kph"] == 0).sum() / total * 100, 1) if total else 0
+    calm_pct = round((wdf["avg_wind_kph"] <= CALM_THRESHOLD_KPH).sum() / total * 100, 1) if total else 0
 
     # Speed bins: 0-5, 5-10, 10-15, 15-20, 20+
     traces = []
@@ -176,9 +176,9 @@ def _build_wind_timeseries(wdf):
     """Build wind speed time series with average and gust."""
     timestamps = [to_eat_ms(t) for t in wdf["timestamp"]]
 
-    # 24-hour running mean
+    # 12-hour running mean
     wdf_sorted = wdf.set_index("timestamp").sort_index()
-    running_mean = wdf_sorted["avg_wind_kph"].rolling("24h", min_periods=1).mean()
+    running_mean = wdf_sorted["avg_wind_kph"].rolling("12h", center=True, min_periods=1).mean()
     rm_ts = [to_eat_ms(t) for t in running_mean.index]
     rm_vals = [round(v, 1) if not pd.isna(v) else None for v in running_mean.values]
 
@@ -208,7 +208,7 @@ def _build_wind_timeseries(wdf):
         {
             "type": "scatter",
             "mode": "lines",
-            "name": "24h Mean",
+            "name": "12h Mean",
             "x_ms": rm_ts,
             "y": rm_vals,
             "line": {"color": "#d62728", "width": 2},
@@ -242,7 +242,7 @@ def _build_diurnal_wind(wdf):
 
     # Calm percentage by hour
     calm_by_hour = wdf_c.groupby("hour").apply(
-        lambda g: (g["avg_wind_kph"] == 0).sum() / len(g) * 100
+        lambda g: (g["avg_wind_kph"] <= CALM_THRESHOLD_KPH).sum() / len(g) * 100
     ).round(1)
 
     # Optional: separate by month
@@ -293,7 +293,7 @@ def _build_diurnal_wind(wdf):
         },
         {
             "type": "bar",
-            "name": "Calm %",
+            "name": "Calm % (\u22640.1 m/s)",
             "x": hours,
             "y": calm_pcts,
             "yaxis": "y2",
@@ -334,7 +334,7 @@ def _build_wind_distribution(wdf, k_val, c_val):
     hist, bin_edges = np.histogram(speeds, bins=bins)
 
     # Separate calm bar
-    calm_count = int((speeds == 0).sum())
+    calm_count = int((speeds <= CALM_THRESHOLD_KPH).sum())
     bin_centers = [(bin_edges[i] + bin_edges[i + 1]) / 2 for i in range(len(hist))]
 
     traces = [{
@@ -387,7 +387,7 @@ def _build_wind_distribution(wdf, k_val, c_val):
 
 def _build_gust_factor(wdf):
     """Build gust factor scatter plot (gust factor vs avg speed, colored by hour)."""
-    valid = wdf[(wdf["avg_wind_kph"] > 0) & wdf["peak_wind_kph"].notna()].copy()
+    valid = wdf[(wdf["avg_wind_kph"] > CALM_THRESHOLD_KPH) & wdf["peak_wind_kph"].notna()].copy()
     valid["gust_factor"] = valid["peak_wind_kph"] / valid["avg_wind_kph"]
     valid["hour"] = valid["timestamp"].dt.hour
 
@@ -440,7 +440,7 @@ def _build_gust_factor(wdf):
 
 def _build_calm_periods(wdf):
     """Build calm period analysis: distribution of consecutive calm durations."""
-    is_calm = (wdf["avg_wind_kph"] == 0).values
+    is_calm = (wdf["avg_wind_kph"] <= CALM_THRESHOLD_KPH).values
     timestamps = wdf["timestamp"].values
 
     # Find consecutive calm periods
@@ -528,8 +528,8 @@ def _build_ventilation_availability(wdf):
         for date, group in wdf_c.groupby("date"):
             total = len(group)
             effective = (group["avg_wind_kph"] >= thresh).sum()
-            marginal = ((group["avg_wind_kph"] > 0) & (group["avg_wind_kph"] < thresh)).sum()
-            calm = (group["avg_wind_kph"] == 0).sum()
+            marginal = ((group["avg_wind_kph"] > CALM_THRESHOLD_KPH) & (group["avg_wind_kph"] < thresh)).sum()
+            calm = (group["avg_wind_kph"] <= CALM_THRESHOLD_KPH).sum()
 
             # Convert to hours (assuming ~5-min intervals)
             interval_h = 5 / 60
@@ -545,8 +545,8 @@ def _build_ventilation_availability(wdf):
     # Default threshold stats
     default_thresh = 3.5
     all_effective = (wdf_c["avg_wind_kph"] >= default_thresh).sum()
-    all_marginal = ((wdf_c["avg_wind_kph"] > 0) & (wdf_c["avg_wind_kph"] < default_thresh)).sum()
-    all_calm = (wdf_c["avg_wind_kph"] == 0).sum()
+    all_marginal = ((wdf_c["avg_wind_kph"] > CALM_THRESHOLD_KPH) & (wdf_c["avg_wind_kph"] < default_thresh)).sum()
+    all_calm = (wdf_c["avg_wind_kph"] <= CALM_THRESHOLD_KPH).sum()
     total = len(wdf_c)
     eff_pct = round(all_effective / total * 100, 1) if total else 0
 
@@ -583,7 +583,7 @@ def _build_ventilation_availability(wdf):
         {
             "type": "scatter",
             "mode": "lines",
-            "name": "Calm",
+            "name": "Calm (\u22640.1 m/s)",
             "x_ms": dates_ms,
             "y": calm_hours,
             "fill": "tonexty",

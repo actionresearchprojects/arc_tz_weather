@@ -28,6 +28,9 @@ KN_TO_MS  = 463 / 900   # m/s per knot
 KPH_TO_KN = 250 / 463   # knots per km/h
 MS_TO_KN  = 900 / 463   # knots per m/s
 
+# Calm threshold: 0.1 m/s expressed in km/h (0.1 * 3.6 = 0.36)
+CALM_THRESHOLD_KPH = 0.36
+
 # Thresholds in knots (WMO integer boundaries). range_kn is [lo, hi).
 BEAUFORT_SCALE = {
     0:  {"range_kn": (0,   1),   "label": "Calm"},
@@ -368,6 +371,14 @@ def get_season(month):
     return "Unknown"
 
 
+_SEASON_BOUNDARY_LABELS = {
+    1:  "January Dry Season (Kiangazi)",
+    3:  "Long Rains (Masika)",
+    6:  "June Dry Season (Kiangazi)",
+    11: "Short Rains (Vuli)",
+}
+
+
 def get_season_boundaries(df):
     """Get season boundary timestamps for marking on charts."""
     boundaries = []
@@ -383,8 +394,7 @@ def get_season_boundaries(df):
         for m in season_starts:
             dt = TIMEZONE.localize(datetime(year, m, 1))
             if min_date <= dt <= max_date:
-                season_name = get_season(m)
-                boundaries.append({"ts": to_eat_ms(dt), "label": season_name})
+                boundaries.append({"ts": to_eat_ms(dt), "label": _SEASON_BOUNDARY_LABELS[m]})
         year += 1
     return boundaries
 

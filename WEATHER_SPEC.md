@@ -402,9 +402,9 @@ All charts use **Plotly.js** (client-side rendering), consistent with the existi
 - **Research value**: Intensity distribution determines whether rain is gentle (windows can stay open) or violent (driving rain risk, window closure needed). The 95th percentile intensity is a key design parameter.
 
 #### 5.17 Diurnal Rainfall Pattern
-- **Chart type**: Dual-axis chart: bar chart (mean hourly rainfall, mm) + line chart (rain probability, %).
-- **Description**: For each hour of the day, shows (a) the mean rainfall amount and (b) the probability that it is raining (percentage of readings in that hour with rate > 0). Reveals the typical daily rainfall timing.
-- **Derived metrics**: Peak rainfall hour, dry hours, rain probability by time of day.
+- **Chart type**: Dual-axis chart: bar chart (mean hourly rainfall, mm) + line chart (rain frequency, %).
+- **Description**: For each hour of the day, shows (a) the mean rainfall amount and (b) the historical frequency of rain (percentage of readings in that hour with rate > 0). Reveals the typical daily rainfall timing.
+- **Derived metrics**: Peak rainfall hour, dry hours, rain frequency by time of day.
 - **Presentation**: x-axis = hour (0-23). Hover shows both metrics.
 - **Research value**: In tropical coastal locations, rain often follows a diurnal pattern (afternoon convective storms). Knowing when rain is most likely guides window operation schedules and ventilation strategy.
 

@@ -396,6 +396,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
+.polarlayer text{stroke:white;stroke-width:3px;paint-order:stroke fill;stroke-linejoin:round}
 body{font-family:'Ubuntu',sans-serif;font-size:13px;background:#f8f9fa;color:#333;display:flex;flex-direction:column;height:100vh;overflow:hidden}
 #header{background:white;border-bottom:1px solid #ddd;padding:6px 12px;display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap;min-height:40px}
 #header h1{font-size:18px;font-weight:500;color:#222;margin-right:2px;white-space:nowrap}
@@ -487,6 +488,16 @@ optgroup{font-weight:600;font-style:normal}
   #download-btn{font-size:11px;padding:3px 7px}
   input[type=date]{font-size:11px;max-width:110px}
 }
+#wr-slider-wrap{display:none;padding:4px 0 0 0}
+#wr-slider-wrap label{font-size:11px;cursor:pointer}
+#wr-slider-bar{display:none;background:white;border-top:1px solid #ddd;padding:6px 12px 8px;flex-shrink:0}
+#wr-slider-bar .wr-sl-row{display:flex;align-items:center;gap:8px}
+#wr-slider-bar input[type=range]{flex:1;margin:0}
+#wr-slider-bar .wr-sl-date{font-size:13px;font-weight:600;min-width:180px;text-align:center;font-family:'Ubuntu',monospace}
+#wr-slider-bar select{font-size:11px;padding:1px 4px}
+#wr-slider-bar .wr-sl-btns button{border:1px solid #ccc;background:white;border-radius:3px;padding:2px 8px;cursor:pointer;font-size:12px}
+#wr-slider-bar .wr-sl-btns button:hover{background:#f0f0f0}
+#wr-slider-bar .wr-sl-btns button.active{background:#e6e6e6;font-weight:600}
 #wind-unit-wrap{display:none;padding:2px 0 0 0}
 .wind-unit-notch{display:inline-flex;border:1px solid #d0d0d0;border-radius:3px;overflow:hidden}
 .wind-unit-btn{padding:2px 7px;font-size:10px;border:none;background:transparent;cursor:pointer;color:#999;white-space:nowrap}
@@ -543,6 +554,22 @@ optgroup{font-weight:600;font-style:normal}
       <div id="periodic-warnings" style="margin-top:6px;font-size:11px;color:#a0522d;"></div>
     </div>
     <hr class="divider" id="periodic-divider" style="display:none">
+
+    <!-- Wind rose slider toggle -->
+    <div id="wr-slider-wrap">
+      <label><input type="checkbox" id="wr-slider-cb" onchange="toggleWindRoseSlider(this.checked)"> Slider mode</label>
+      <div id="wr-slider-gran" style="display:none;margin-top:3px">
+        <label style="font-size:10px;color:#666">Window:
+          <select id="wr-slider-granularity" onchange="wrSliderGranChanged()" style="font-size:10px">
+            <option value="3600000">1 hour</option>
+            <option value="21600000">6 hours</option>
+            <option value="86400000" selected>1 day</option>
+            <option value="604800000">1 week</option>
+            <option value="2592000000">1 month</option>
+          </select>
+        </label>
+      </div>
+    </div>
 
     <!-- Wind unit notch (shown for wind-related charts) -->
     <div id="wind-unit-wrap">
@@ -663,6 +690,15 @@ optgroup{font-weight:600;font-style:normal}
       <div class="info-tip-fixed" id="period-info-tip"></div>
     </div>
     <div id="chart"></div>
+    <div id="wr-slider-bar">
+      <div class="wr-sl-row">
+        <span class="wr-sl-date" id="wr-sl-date"></span>
+        <input type="range" id="wr-sl-range" min="0" max="100" value="0">
+        <div class="wr-sl-btns">
+          <button id="wr-sl-play" onclick="wrSliderPlayPause()">&#9654;</button>
+        </div>
+      </div>
+    </div>
     <div id="events-container" class="hidden">
       <table id="rain-events-table">
         <thead>
@@ -774,12 +810,12 @@ const I18N = {
     evMeanRate: 'Mean (mm/h)',
     evWindDir: 'Wind Dir',
     // Info tooltips
-    infoWindRose: 'Shows the frequency of wind from each of 16 compass directions, with colour bands for speed ranges. The central percentage shows how often conditions are calm (0 km/h). This reveals prevailing wind directions for orienting ventilation openings.',
-    infoWindTS: 'Continuous time series of 5-minute average wind speed and peak gust. The red line shows the 24-hour running mean. Identifies storm events and the relationship between average and gust speeds.',
+    infoWindRose: 'Shows the frequency of wind from each of 16 compass directions, with colour bands for speed ranges. The central percentage shows how often conditions are calm (below 0.1 m/s). This reveals prevailing wind directions for orienting ventilation openings.',
+    infoWindTS: 'Continuous time series of 5-minute average wind speed and peak gust. The red line shows the 12-hour running mean. Identifies storm events and the relationship between average and gust speeds.',
     infoDiurnalWind: 'Mean wind speed by hour of day, with shaded standard deviation band. The bar chart shows calm percentage by hour. Identifies the daily ventilation cycle; in coastal Tanzania, sea/land breezes create predictable diurnal patterns.',
     infoWindDist: 'Distribution of 5-minute average wind speeds. The dashed red line shows a Weibull probability distribution fit, commonly used in wind analysis. The Weibull shape (k) and scale (c) parameters characterise the site wind regime.',
     infoGustFactor: 'Each 5-minute reading plotted as gust factor (peak/avg) vs. average speed. Colour represents hour of day. The dashed red line at 2.0 marks the typical threshold for turbulent conditions. High gust factors at low speeds indicate gusty, turbulent conditions.',
-    infoCalmPeriods: 'Distribution of consecutive calm period durations (0 km/h readings). Extended calm periods mean the building relies on stack effect alone for ventilation. This directly informs whether mechanical backup ventilation is needed.',
+    infoCalmPeriods: 'Distribution of consecutive calm period durations (wind \u22640.1 m/s). Extended calm periods mean the building relies on stack effect alone for ventilation. This directly informs whether mechanical backup ventilation is needed.',
     infoVentAvail: 'For each day, shows hours in three categories: above ventilation threshold (effective wind), below threshold but non-zero (marginal), and calm. The threshold is adjustable. Directly answers "what fraction of the time is natural ventilation effective?"',
     infoWindCatDist: 'Horizontal bar chart showing how often wind falls into each speed category. Switch between Beaufort, Lawson 2001, Davenport, or custom thresholds. Count by percentage or a time unit (e.g. hours per day). Hover bars for speed ranges and counts.',
     infoSolarTS: 'Continuous time series of global horizontal irradiance (W/m2). Shows solar intensity patterns, cloudy vs. clear days, and seasonal trends. Directly related to solar heat gain through windows and roofing.',
@@ -819,7 +855,7 @@ const I18N = {
     tanzanianSeason: 'Tanzanian Season',
     infoAvgWindProfiles: 'Mean wind speed averaged across the selected cycle, with \u00b11 SD shading. Calm percentage bars (right axis) show how often wind is zero for each category. Use "Day" to see how the sea/land breeze cycle drives ventilation; use oscillation cycles (MJO, IOD, ENSO) to see how large-scale climate patterns affect wind.',
     infoAvgSolarProfiles: 'Mean solar radiation averaged across the selected cycle, with \u00b11 SD shading. "Day" shows the diurnal solar curve; "Year" reveals seasonal insolation patterns. Asymmetry in the diurnal curve indicates morning vs. afternoon cloud cover differences.',
-    infoAvgRainProfiles: 'Mean rainfall amount (bars) and rain probability (line, right axis) averaged across the selected cycle. "Day" shows whether convective afternoon storms or nocturnal rain dominate; "Year" reveals the wet/dry season structure. Oscillation cycles show how MJO, IOD, and ENSO modulate rainfall.',
+    infoAvgRainProfiles: 'Mean rainfall amount (bars) and rain frequency (line, right axis) averaged across the selected cycle. "Day" shows whether convective afternoon storms or nocturnal rain dominate; "Year" reveals the wet/dry season structure. Oscillation cycles show how MJO, IOD, and ENSO modulate rainfall.',
     // Data freshness
     dataUpdated: 'Data updated',
     staleWarning: 'Data may be stale (older than 2 days)',
@@ -1033,6 +1069,15 @@ function updateSidebarControls() {
     ct === 'pre-storm' || ct === 'driving-rain' || ct === 'ventilation-windows' ||
     ct === 'wind-category-dist';
   document.getElementById('wind-unit-wrap').style.display = isWindRelated ? 'block' : 'none';
+  // Show/hide wind rose slider toggle
+  const isWindRose = ct === 'wind-rose';
+  document.getElementById('wr-slider-wrap').style.display = isWindRose ? 'block' : 'none';
+  if (!isWindRose && _wrSlider.on) {
+    _wrSliderStop();
+    document.getElementById('wr-slider-bar').style.display = 'none';
+    document.getElementById('wr-slider-cb').checked = false;
+    _wrSlider.on = false;
+  }
   // Show/hide wind series checkboxes
   const showWindSeries = ct === 'wind-timeseries' || ct === 'wind-category-dist';
   document.getElementById('wind-series-controls').style.display = showWindSeries ? '' : 'none';
@@ -1095,7 +1140,7 @@ function updateStatsPanel() {
     html += statsRow('Mean speed', wDisp(ws.meanSpeed) + ' ' + wLabel());
     html += statsRow('Max speed', wDisp(ws.maxSpeed) + ' ' + wLabel());
     html += statsRow('Max gust', wDisp(ws.maxGust) + ' ' + wLabel());
-    html += statsRow('Calm %', ws.calmPct + '%');
+    html += statsRow('Calm (' + calmLabel() + ')', ws.calmPct + '%');
     html += statsRow('Prevailing dir', ws.prevailingDir);
     html += statsRow('Median', wDisp(ws.medianSpeed) + ' ' + wLabel());
     html += statsRow('95th percentile', wDisp(ws.p95Speed) + ' ' + wLabel());
@@ -1204,6 +1249,11 @@ function wLabel() {
   if (state.windUnit === 'kn') return 'kn';
   return 'km/h';
 }
+function calmLabel() {
+  if (state.windUnit === 'ms') return '\u22640.1 m/s';
+  if (state.windUnit === 'kn') return '\u22640.2 kn';
+  return '\u22640.36 km/h';
+}
 function setWindUnit(unit) {
   state.windUnit = unit;
   ['kmh', 'ms', 'kn'].forEach(u => document.getElementById('wu-' + u).classList.toggle('active', u === unit));
@@ -1226,8 +1276,193 @@ function setWindCatCustomUnit(unit) {
 
 function updateWindSeries() { updatePlot(); }
 
+// ── Wind Rose Slider ─────────────────────────────────────────────────────────
+let _wrSlider = {on: false, playing: false, timer: null, steps: [], idx: 0, maxR: null, curR: null, animId: null};
+
+function toggleWindRoseSlider(on) {
+  _wrSlider.on = on;
+  document.getElementById('wr-slider-gran').style.display = on ? 'block' : 'none';
+  document.getElementById('wr-slider-bar').style.display = on ? 'block' : 'none';
+  if (on) {
+    _wrSlider.curR = null;
+    _wrSliderBuildSteps();
+    _wrSliderCalcMaxR();
+    _wrSliderRender(false);
+  } else {
+    _wrSliderStop();
+    _wrSlider.maxR = null;
+    _wrSlider.curR = null;
+    if (_wrSlider.animId) { cancelAnimationFrame(_wrSlider.animId); _wrSlider.animId = null; }
+    updatePlot();
+  }
+}
+
+function wrSliderGranChanged() {
+  _wrSlider.curR = null;
+  _wrSliderBuildSteps();
+  _wrSliderCalcMaxR();
+  _wrSliderRender(false);
+}
+
+function _wrSliderCalcMaxR() {
+  // Use 90th percentile of per-window peak stacked % as the base scale.
+  // Outlier windows dynamically expand the axis in _wrSliderRender.
+  const gran = parseInt(document.getElementById('wr-slider-granularity').value);
+  const steps = _wrSlider.steps;
+  const stride = Math.max(1, Math.floor(steps.length / 200));
+  const peaks = [];
+  for (let si = 0; si < steps.length; si += stride) {
+    const raw = filterRaw(steps[si], steps[si] + gran);
+    if (!raw || !raw.ts.length) continue;
+    const wr = _buildWindRose(raw);
+    const sums = new Array(16).fill(0);
+    wr.data.forEach(tr => { tr.r.forEach((v, j) => { sums[j] += v; }); });
+    peaks.push(Math.max(...sums));
+  }
+  if (!peaks.length) { _wrSlider.maxR = 10; return; }
+  peaks.sort((a, b) => a - b);
+  const p90 = peaks[Math.floor(peaks.length * 0.9)];
+  _wrSlider.maxR = Math.ceil(p90 * 1.1) || 10;
+  _wrSlider.dispR = _wrSlider.maxR; // current displayed range (animated)
+}
+
+function _wrSliderBuildSteps() {
+  const r = ALL_DATA.raw;
+  if (!r || !r.ts.length) return;
+  const {start, end} = getTimeRange();
+  const gran = parseInt(document.getElementById('wr-slider-granularity').value);
+  const steps = [];
+  let t = start;
+  while (t < end) {
+    steps.push(t);
+    t += gran;
+  }
+  if (!steps.length) steps.push(start);
+  _wrSlider.steps = steps;
+  _wrSlider.idx = 0;
+  const sl = document.getElementById('wr-sl-range');
+  sl.min = 0;
+  sl.max = Math.max(steps.length - 1, 0);
+  sl.value = 0;
+  sl.oninput = function() { _wrSlider.idx = +this.value; _wrSliderRender(true); };
+}
+
+function _wrSliderDateLabel(ms, gran) {
+  const d = new Date(ms + 3 * 3600000);
+  const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getUTCMonth()];
+  const pad = n => String(n).padStart(2, '0');
+  if (gran >= 2592000000) return mo + ' ' + d.getUTCFullYear();
+  if (gran >= 604800000) return d.getUTCDate() + ' ' + mo + ' \u2013 ' + _wrSliderDateLabel(ms + gran, 86400000);
+  if (gran >= 86400000) return d.getUTCDate() + ' ' + mo + ' ' + d.getUTCFullYear();
+  return d.getUTCDate() + ' ' + mo + ' ' + pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes());
+}
+
+function _wrSliderRender(animate) {
+  if (!_wrSlider.steps.length || !ALL_DATA.raw) return;
+  const gran = parseInt(document.getElementById('wr-slider-granularity').value);
+  const winStart = _wrSlider.steps[_wrSlider.idx];
+  const winEnd = winStart + gran;
+
+  // Display date/time label
+  if (gran < 86400000) {
+    document.getElementById('wr-sl-date').textContent = _wrSliderDateLabel(winStart, gran) + ' \u2013 ' + _wrSliderDateLabel(winEnd, gran);
+  } else {
+    document.getElementById('wr-sl-date').textContent = _wrSliderDateLabel(winStart, gran);
+  }
+
+  // Filter raw data to window
+  const raw = filterRaw(winStart, winEnd);
+  if (!raw || !raw.ts.length) return;
+
+  // Build target wind rose
+  const wr = _buildWindRose(raw);
+  const targetR = wr.data.map(tr => tr.r.slice());
+
+  // Determine axis range: use base p90, but expand for outliers
+  const sums = new Array(16).fill(0);
+  wr.data.forEach(tr => { tr.r.forEach((v, j) => { sums[j] += v; }); });
+  const framePeak = Math.max(...sums);
+  const baseMax = _wrSlider.maxR || 10;
+  const needR = framePeak > baseMax ? Math.ceil(framePeak * 1.05) : baseMax;
+
+  const chartEl = document.getElementById('chart');
+  const cfg = {responsive: true, displayModeBar: false};
+
+  function makeLayout(rangeMax) {
+    const lo = Object.assign({}, wr.layout);
+    lo.polar = Object.assign({}, lo.polar);
+    lo.polar.radialaxis = Object.assign({}, lo.polar.radialaxis, {range: [0, rangeMax]});
+    lo.margin = {l: 60, r: 40, t: 30, b: 50};
+    lo.autosize = true;
+    lo.font = {family: 'Ubuntu, sans-serif', size: 12};
+    return lo;
+  }
+
+  if (!animate || !_wrSlider.curR) {
+    _wrSlider.curR = targetR;
+    _wrSlider.dispR = needR;
+    Plotly.react(chartEl, wr.data, makeLayout(needR), cfg);
+    return;
+  }
+
+  // Animate: interpolate bars and axis range over ~350ms
+  if (_wrSlider.animId) { cancelAnimationFrame(_wrSlider.animId); _wrSlider.animId = null; }
+  const fromR = _wrSlider.curR.map(tr => tr.slice());
+  const fromRange = _wrSlider.dispR || baseMax;
+  const dur = 350;
+  const t0 = performance.now();
+
+  function step(now) {
+    let p = (now - t0) / dur;
+    if (p >= 1) p = 1;
+    p = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+    const interpData = wr.data.map((tr, ti) => {
+      const r = fromR[ti].map((v, di) => v + (targetR[ti][di] - v) * p);
+      return Object.assign({}, tr, {r: r});
+    });
+    const curRange = fromRange + (needR - fromRange) * p;
+    Plotly.react(chartEl, interpData, makeLayout(curRange), cfg);
+    if (p < 1) {
+      _wrSlider.animId = requestAnimationFrame(step);
+    } else {
+      _wrSlider.curR = targetR;
+      _wrSlider.dispR = needR;
+      _wrSlider.animId = null;
+    }
+  }
+  _wrSlider.animId = requestAnimationFrame(step);
+  _wrSlider.curR = targetR;
+}
+
+function wrSliderPlayPause() {
+  if (_wrSlider.playing) {
+    _wrSliderStop();
+  } else {
+    _wrSlider.playing = true;
+    document.getElementById('wr-sl-play').innerHTML = '&#9646;&#9646;';
+    const gran = parseInt(document.getElementById('wr-slider-granularity').value);
+    const interval = gran <= 3600000 ? 250 : gran <= 86400000 ? 400 : 600;
+    _wrSlider.timer = setInterval(() => {
+      if (_wrSlider.idx >= _wrSlider.steps.length - 1) {
+        _wrSliderStop();
+        return;
+      }
+      _wrSlider.idx++;
+      document.getElementById('wr-sl-range').value = _wrSlider.idx;
+      _wrSliderRender(true);
+    }, interval);
+  }
+}
+
+function _wrSliderStop() {
+  _wrSlider.playing = false;
+  if (_wrSlider.timer) { clearInterval(_wrSlider.timer); _wrSlider.timer = null; }
+  document.getElementById('wr-sl-play').innerHTML = '&#9654;';
+}
+
 // ── Raw-Data Recomputation ────────────────────────────────────────────────────
 
+const _CALM_KPH = 0.36; // 0.1 m/s calm threshold
 const _C16 = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
 const _WB = [0,5,10,15,20,999];
 const _WL = ["0-5","5-10","10-15","15-20","20+"];
@@ -1269,12 +1504,12 @@ function _computeStats(raw) {
     meanSpeed: Math.round(spd.reduce((a,b)=>a+b,0)/spd.length*10)/10,
     maxSpeed: Math.round(Math.max(...spd)*10)/10,
     maxGust: gusts.length ? Math.round(Math.max(...gusts)*10)/10 : 0,
-    calmPct: Math.round(spd.filter(v=>v===0).length/spd.length*1000)/10,
+    calmPct: Math.round(spd.filter(v=>v<=_CALM_KPH).length/spd.length*1000)/10,
     medianSpeed: Math.round(_median(spd)*10)/10,
     p95Speed: Math.round(_pctile(spd,95)*10)/10,
     prevailingDir: (()=>{
       const cnt={};
-      raw.avgWind.forEach((v,i)=>{ if(v>0){ const d=_cBin(raw.windDir[i]); if(d) cnt[d]=(cnt[d]||0)+1; }});
+      raw.avgWind.forEach((v,i)=>{ if(v>_CALM_KPH){ const d=_cBin(raw.windDir[i]); if(d) cnt[d]=(cnt[d]||0)+1; }});
       return Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0]?.[0]||'N/A';
     })(),
   } : ALL_DATA.stats.wind;
@@ -1333,12 +1568,12 @@ function _getStats() {
 }
 
 function _buildWindRose(raw) {
-  const total=raw.avgWind.filter(v=>v!=null).length, calm=raw.avgWind.filter(v=>v===0).length;
+  const total=raw.avgWind.filter(v=>v!=null).length, calm=raw.avgWind.filter(v=>v!=null&&v<=_CALM_KPH).length;
   const calmPct=total?Math.round(calm/total*1000)/10:0;
   const binLabels = state.windUnit === 'ms' ? _WL_MS : state.windUnit === 'kn' ? _WL_KN : _WL;
   const traces=binLabels.map((lbl,li)=>{
     const lo=_WB[li],hi=_WB[li+1],cnt={};_C16.forEach(d=>cnt[d]=0);
-    raw.avgWind.forEach((v,i)=>{ if(v==null||v<=0||v<lo||v>=hi) return; const d=_cBin(raw.windDir[i]); if(d) cnt[d]++; });
+    raw.avgWind.forEach((v,i)=>{ if(v==null||v<=_CALM_KPH||v<lo||v>=hi) return; const d=_cBin(raw.windDir[i]); if(d) cnt[d]++; });
     return {type:'barpolar',r:_C16.map(d=>total?Math.round(cnt[d]/total*10000)/100:0),theta:_C16,name:lbl+' '+wLabel(),marker:{color:_WC[li]}};
   });
   return {data:traces, calmPct,
@@ -1352,7 +1587,7 @@ function _buildWindDist(raw) {
   const cnts=new Array(bins.length-1).fill(0),ctrs=bins.slice(0,-1).map((b,i)=>Math.round((b+bins[i+1])/2*10)/10);
   spd.forEach(v=>{ const j=Math.min(Math.floor(v/step),cnts.length-1); cnts[j]++; });
   const xVals = ctrs.map(c => wToUnit(c));
-  return {data:[{type:'bar',name:'Frequency',x:xVals,y:cnts,marker:{color:'#1f77b4'}}], calmCount:spd.filter(v=>v===0).length,
+  return {data:[{type:'bar',name:'Frequency',x:xVals,y:cnts,marker:{color:'#1f77b4'}}], calmCount:spd.filter(v=>v<=_CALM_KPH).length,
     layout:{xaxis:{title:'Wind Speed (' + wLabel() + ')'},yaxis:{title:'Count'},showlegend:true,bargap:0.05}};
 }
 
@@ -1360,7 +1595,7 @@ function _buildCalmPeriods(raw) {
   const BE=[0,5,30,60,180,360,720,1440,99999],BL=['<5min','5-30min','30min-1h','1-3h','3-6h','6-12h','12-24h','24h+'];
   const cnts=new Array(BL.length).fill(0),durs=[];
   let inC=false,si=0;
-  raw.avgWind.forEach((v,i)=>{ if(v===0&&!inC){inC=true;si=i;} else if(v!==0&&inC){inC=false;durs.push((raw.ts[i-1]-raw.ts[si])/60000);} });
+  raw.avgWind.forEach((v,i)=>{ if(v<=_CALM_KPH&&!inC){inC=true;si=i;} else if(v>_CALM_KPH&&inC){inC=false;durs.push((raw.ts[i-1]-raw.ts[si])/60000);} });
   if(inC&&raw.ts.length) durs.push((raw.ts[raw.ts.length-1]-raw.ts[si])/60000);
   durs.forEach(d=>{ for(let j=0;j<BE.length-1;j++) if(d>=BE[j]&&d<BE[j+1]){cnts[j]++;break;} });
   const longest=durs.length?Math.round(Math.max(...durs)*10)/10:0;
@@ -1386,7 +1621,7 @@ function _buildDrivingRain(raw) {
   const dri={};_C16.forEach(d=>dri[d]=0); let any=false;
   raw.ts.forEach((_,i)=>{
     const w=raw.avgWind[i],r=raw.precipRate[i],d=raw.windDir[i];
-    if(!w||!r||w<=0||r<=0||d==null) return;
+    if(!w||!r||w<=_CALM_KPH||r<=0||d==null) return;
     const v=_cBin(d); if(!v) return;
     dri[v]+=(w/3.6)*Math.pow(r,8/9); any=true;
   });
@@ -1395,7 +1630,7 @@ function _buildDrivingRain(raw) {
   const facadeDRI={N:0,E:0,S:0,W:0};
   raw.ts.forEach((_,i)=>{
     const w=raw.avgWind[i],r=raw.precipRate[i],d=raw.windDir[i];
-    if(!w||!r||w<=0||r<=0||d==null) return;
+    if(!w||!r||w<=_CALM_KPH||r<=0||d==null) return;
     const dv=(w/3.6)*Math.pow(r,8/9);
     [{f:'N',deg:0},{f:'E',deg:90},{f:'S',deg:180},{f:'W',deg:270}].forEach(({f,deg})=>{
       const c=Math.cos((d-deg)*Math.PI/180); if(c>0) facadeDRI[f]+=dv*c;
@@ -1782,6 +2017,14 @@ function updatePlot() {
   const titleEl = document.getElementById('bar-title');
   titleEl.textContent = currentLang === 'sw' ? (chart.title_sw || chart.title) : chart.title;
 
+  // If wind rose slider is active, delegate rendering to slider
+  if (ct === 'wind-rose' && _wrSlider.on) {
+    _wrSliderBuildSteps();
+    _wrSliderRender();
+    updateStatsPanel();
+    return;
+  }
+
   const config = {responsive: true, displayModeBar: true, modeBarButtonsToRemove: ['zoom2d','pan2d','select2d','lasso2d','zoomIn2d','zoomOut2d','resetScale2d','sendDataToCloud','hoverClosestCartesian','hoverCompareCartesian','toggleSpikelines','toImage']};
 
   // Pre-compute filtered chart for aggregated chart types (needed by stats panel)
@@ -1823,10 +2066,6 @@ function updatePlot() {
     layout.margin = layout.margin || {l: 60, r: 40, t: 30, b: 50};
     layout.autosize = true;
     layout.font = {family: 'Ubuntu, sans-serif', size: 12};
-    if (ct === 'wind-rose' && _computedChart.calmPct !== undefined) {
-      layout.annotations = layout.annotations || [];
-      layout.annotations.push({x:0.5,y:0.5,xref:'paper',yref:'paper',text:'Calm: '+_computedChart.calmPct+'%',showarrow:false,font:{size:14,color:'#666',family:'Ubuntu'}});
-    }
     Plotly.react(chartEl, _computedChart.data, layout, config);
     state.savedZoom = null;
     return;
@@ -1885,16 +2124,6 @@ function updatePlot() {
     }
   }
 
-  // Wind rose calm annotation
-  if (ct === 'wind-rose' && chart.calmPct !== undefined) {
-    layout.annotations = layout.annotations || [];
-    layout.annotations.push({
-      x: 0.5, y: 0.5, xref: 'paper', yref: 'paper',
-      text: 'Calm: ' + chart.calmPct + '%',
-      showarrow: false,
-      font: {size: 14, color: '#666', family: 'Ubuntu'},
-    });
-  }
 
   // ── Wind unit conversion for pre-computed traces ──────────────────────────
   // (Only reached when _computedChart is null, i.e. timeMode==='all' or no raw data)
@@ -2105,7 +2334,7 @@ function renderPeriodicAverages() {
     sumsq[ci] += v * v;
     counts[ci]++;
     if (ct === 'avg-wind-profiles') {
-      if (rawY[i] != null && isFinite(rawY[i]) && rawY[i] === 0) calmCounts[ci]++;
+      if (rawY[i] != null && isFinite(rawY[i]) && rawY[i] <= _CALM_KPH) calmCounts[ci]++;
     }
     if (ct === 'avg-rainfall-profiles') {
       totCounts[ci]++;
@@ -2148,7 +2377,7 @@ function renderPeriodicAverages() {
     if (isClimateOsc) { meanTrace.mode = 'markers'; meanTrace.marker = {color:'#1f77b4', size:10, line:{color:'white',width:1}}; }
     else { meanTrace.mode = 'lines+markers'; meanTrace.line = {color:'#1f77b4', width:2}; meanTrace.marker = {size:5}; meanTrace.connectgaps = false; }
     traces.push(meanTrace);
-    traces.push({type:'bar', name:'Calm %', x:xArr, y:calmPcts, yaxis:'y2', marker:{color:'rgba(180,180,180,0.5)'}, textposition:'none', hovertemplate:'%{x}<br>Calm: %{y:.1f}%<extra></extra>'});
+    traces.push({type:'bar', name:'Calm % (' + calmLabel() + ')', x:xArr, y:calmPcts, yaxis:'y2', marker:{color:'rgba(180,180,180,0.5)'}, textposition:'none', hovertemplate:'%{x}<br>Calm (' + calmLabel() + '): %{y:.1f}%<extra></extra>'});
   } else if (ct === 'avg-solar-profiles') {
     if (!isClimateOsc) {
       traces.push({type:'scatter', mode:'lines', x:xArr, y:upperArr, line:{width:0}, showlegend:false, hoverinfo:'skip', connectgaps:false});
@@ -2161,7 +2390,7 @@ function renderPeriodicAverages() {
   } else {
     // avg-rainfall-profiles
     traces.push({type:'bar', name:'Mean Rainfall', x:xArr, y:meanArr, marker:{color:'rgba(31,119,180,0.7)'}, textposition:'none', hovertemplate:'%{x}<br>Mean: %{y:.3f} mm<extra></extra>'});
-    const probTrace = {type:'scatter', x:xArr, y:rainProbs, name:'Rain Probability %', yaxis:'y2', hovertemplate:'%{x}<br>Rain prob: %{y:.1f}%<extra></extra>'};
+    const probTrace = {type:'scatter', x:xArr, y:rainProbs, name:'Rain Frequency %', yaxis:'y2', hovertemplate:'%{x}<br>Rain freq: %{y:.1f}%<extra></extra>'};
     if (isClimateOsc) { probTrace.mode = 'markers'; probTrace.marker = {color:'#d62728', size:10, line:{color:'white',width:1}}; }
     else { probTrace.mode = 'lines+markers'; probTrace.line = {color:'#d62728', width:2}; probTrace.marker = {size:5}; probTrace.connectgaps = false; }
     traces.push(probTrace);
@@ -2194,7 +2423,7 @@ function renderPeriodicAverages() {
     yTitle = 'Solar Radiation (W/m\u00b2)';
   } else {
     yTitle = 'Rainfall (mm per reading)';
-    y2cfg = {title:'Rain Probability %', overlaying:'y', side:'right', range:[0,100], showgrid:false};
+    y2cfg = {title:'Rain Frequency %', overlaying:'y', side:'right', range:[0,100], showgrid:false};
   }
 
   const layout = {
