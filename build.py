@@ -1791,15 +1791,21 @@ function _buildWindCategoryDist(raw) {
     else if (u === 'weeks') mins = val * 10080;
     else if (u === 'months') mins = val * 43830;
     else return val;
-    const mo = Math.floor(mins / 43830); mins -= mo * 43830;
-    const wk = Math.floor(mins / 10080); mins -= wk * 10080;
-    const d = Math.floor(mins / 1440); mins -= d * 1440;
+    const parts = [];
+    if (u === 'months') {
+      const mo = Math.floor(mins / 43830); mins -= mo * 43830;
+      if (mo) parts.push(mo + (mo===1?' month':' months'));
+    }
+    if (u === 'months' || u === 'weeks') {
+      const wk = Math.floor(mins / 10080); mins -= wk * 10080;
+      if (wk) parts.push(wk + (wk===1?' week':' weeks'));
+    }
+    if (u === 'months' || u === 'weeks' || u === 'days') {
+      const d = Math.floor(mins / 1440); mins -= d * 1440;
+      if (d) parts.push(d + (d===1?' day':' days'));
+    }
     const h = Math.floor(mins / 60);
     const m = Math.round(mins - h * 60);
-    const parts = [];
-    if (mo) parts.push(mo + (mo===1?' month':' months'));
-    if (wk) parts.push(wk + (wk===1?' week':' weeks'));
-    if (d) parts.push(d + (d===1?' day':' days'));
     if (h) parts.push(h + (h===1?' hr':' hrs'));
     if (m) parts.push(m + ' min');
     return parts.length ? parts.join(', ') : '0 min';

@@ -295,6 +295,38 @@ def spike_filter(series, max_val):
     return series.where(series <= max_val)
 
 
+def peak_wind_qc(df):
+    """Apply quality control to peak_wind_kph in-place and return the DataFrame.
+
+    Two filters are applied:
+      1. Reed switch bounce: peak_wind_kph / avg_wind_kph > 8 AND peak_wind_kph > 25.
+         A ratio this extreme is physically implausible and indicates sensor artefact.
+         Rows where avg == 0 and peak > 25 are treated as infinite ratio and flagged.
+      2. Ceiling filter: peak_wind_kph > 100, regardless of average speed.
+
+    Flagged rows have peak_wind_kph replaced with NaN. avg_wind_kph is unaffected.
+    A boolean column 'peak_wind_flagged' is added (True = flagged).
+
+    Args:
+        df: DataFrame with columns avg_wind_kph and peak_wind_kph.
+    Returns:
+        The same DataFrame with peak_wind_kph cleaned and peak_wind_flagged added.
+    """
+    import numpy as np
+
+    # Ratio-based bounce filter: peak > 8x average AND peak > 25 km/h.
+    # Rows with avg == 0 and peak > 25 are treated as ratio-infinite, so flagged directly.
+    zero_avg = df["avg_wind_kph"] == 0
+    ratio = np.where(zero_avg, np.inf, df["peak_wind_kph"] / df["avg_wind_kph"].replace(0, np.nan))
+    bounce_mask = (np.array(ratio) > 8) & (df["peak_wind_kph"] > 25)
+    ceiling_mask = df["peak_wind_kph"] > 100
+    flagged = bounce_mask | ceiling_mask
+
+    df["peak_wind_flagged"] = flagged
+    df.loc[flagged, "peak_wind_kph"] = np.nan
+    return df
+
+
 def compass_bin(degrees, n_points=16):
     """Assign a compass direction label to a bearing in degrees."""
     dirs = COMPASS_DIRS_16 if n_points == 16 else COMPASS_DIRS_8
