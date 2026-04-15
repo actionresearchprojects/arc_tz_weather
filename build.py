@@ -352,11 +352,15 @@ def build_dashboard(csv_path=None):
         "precipIncr": [round(float(v), 3) if pd.notna(v) else None for v in precip_incr],
     }
 
+    print("Computing hourly DRI (ISO 15927-3)...")
+    dri_hourly = cross_variable.build_driving_rain_hourly(df_r, precip_incr)
+
     data_blob = {
         "meta": periods,
         "charts": all_charts,
         "stats": all_stats,
         "raw": raw_data,
+        "driHourly": dri_hourly,
         "dataFreshness": {
             "csvFile": Path(csv_file).name,
             "fetchTime": fetch_ts,
@@ -490,6 +494,8 @@ optgroup{font-weight:600;font-style:normal}
 }
 #wr-slider-wrap{display:none;padding:4px 0 0 0}
 #wr-slider-wrap label{font-size:11px;cursor:pointer}
+#dri-resample-wrap{display:none;padding:4px 0 0 0}
+#dri-resample-wrap .ds-label{font-size:10px;color:#666;margin-bottom:2px}
 #wr-slider-bar{display:none;background:white;border-top:1px solid #ddd;padding:6px 12px 8px;flex-shrink:0}
 #wr-slider-bar .wr-sl-row{display:flex;align-items:center;gap:8px}
 #wr-slider-bar input[type=range]{flex:1;margin:0}
@@ -557,7 +563,7 @@ optgroup{font-weight:600;font-style:normal}
 
     <!-- Wind rose slider toggle -->
     <div id="wr-slider-wrap">
-      <label><input type="checkbox" id="wr-slider-cb" onchange="toggleWindRoseSlider(this.checked)"> Slider mode</label>
+      <label class="cb-label"><input type="checkbox" id="wr-slider-cb" onchange="toggleWindRoseSlider(this.checked)"> Slider mode</label>
       <div id="wr-slider-gran" style="display:none;margin-top:3px">
         <label style="font-size:10px;color:#666">Window:
           <select id="wr-slider-granularity" onchange="wrSliderGranChanged()" style="font-size:10px">
@@ -568,6 +574,14 @@ optgroup{font-weight:600;font-style:normal}
             <option value="2592000000">1 month</option>
           </select>
         </label>
+      </div>
+    </div>
+
+    <!-- DRI resampling toggle (driving rain only) -->
+    <div id="dri-resample-wrap">
+      <div class="ds-label">Resampling</div>
+      <div class="wind-unit-notch">
+        <button id="dr-5min" class="wind-unit-btn active" onclick="setDriResample('5min')">5-min</button><button id="dr-1h" class="wind-unit-btn" onclick="setDriResample('1h')">1-hour</button>
       </div>
     </div>
 
@@ -742,6 +756,7 @@ const state = {
   savedZoom: null,
   periodCycle: 'day',
   periodGroupBy: 'hour',
+  driResample: '5min',      // '5min' | '1h' (driving rain resampling)
   windUnit: 'kmh',  // 'ms' = m/s, 'kmh' = km/h (default)
   windCatSystem: 'lawson',     // classification system for wind-category-dist
   windCatValueUnit: 'pct',     // count by: pct|hours|days|weeks|months
@@ -1086,6 +1101,8 @@ function updateSidebarControls() {
   const isWindCatDist = ct === 'wind-category-dist';
   document.getElementById('wind-cat-controls').style.display = isWindCatDist ? 'block' : 'none';
   if (isWindCatDist) _updateWindCatCycleOptions();
+  // Show/hide DRI resampling toggle
+  document.getElementById('dri-resample-wrap').style.display = ct === 'driving-rain' ? 'block' : 'none';
 }
 
 // ── Stats Panel ──────────────────────────────────────────────────────────────
@@ -1254,6 +1271,16 @@ function calmLabel() {
   if (state.windUnit === 'kn') return '\u22640.2 kn';
   return '\u22640.36 km/h';
 }
+function setDriResample(r) {
+  state.driResample = r;
+  ['5min', '1h'].forEach(v => {
+    const btn = document.getElementById('dr-' + v);
+    if (btn) btn.classList.toggle('active', v === r);
+  });
+  updatePlot();
+}
+
+
 function setWindUnit(unit) {
   state.windUnit = unit;
   ['kmh', 'ms', 'kn'].forEach(u => document.getElementById('wu-' + u).classList.toggle('active', u === unit));
@@ -1402,6 +1429,7 @@ function _wrSliderRender(animate) {
     _wrSlider.curR = targetR;
     _wrSlider.dispR = needR;
     Plotly.react(chartEl, wr.data, makeLayout(needR), cfg);
+    _addWrArrows(chartEl);
     return;
   }
 
@@ -1475,6 +1503,36 @@ function _cBin(deg) {
   const d = ((deg % 360) + 360) % 360;
   if (d >= 348.75 || d < 11.25) return "N";
   return _C16[Math.min(Math.floor((d - 11.25) / 22.5) + 1, 15)];
+}
+
+function _resampleRawHourly(raw) {
+  if (!raw) return null;
+  const byH = {};
+  raw.ts.forEach((t, i) => {
+    const h = Math.floor(t / 3600000) * 3600000;
+    if (!byH[h]) byH[h] = {t:h, w:[], s:[], c:[], p:0};
+    if (raw.avgWind[i] != null) byH[h].w.push(raw.avgWind[i]);
+    if (raw.windDir[i] != null) {
+      const rad = raw.windDir[i] * Math.PI / 180;
+      byH[h].s.push(Math.sin(rad)); byH[h].c.push(Math.cos(rad));
+    }
+    // precipIncr (mm per reading) sums to total mm per hour = mm/h rate
+    const incr = (raw.precipIncr && raw.precipIncr[i] != null) ? raw.precipIncr[i]
+               : (raw.precipRate && raw.precipRate[i] != null) ? raw.precipRate[i] / 12 : 0;
+    byH[h].p += incr;
+  });
+  const out = {ts:[], avgWind:[], windDir:[], precipRate:[]};
+  Object.keys(byH).sort((a,b) => +a - +b).forEach(k => {
+    const h = byH[k];
+    out.ts.push(h.t);
+    out.avgWind.push(h.w.length ? Math.round(h.w.reduce((a,b)=>a+b)/h.w.length*10)/10 : null);
+    if (h.s.length) {
+      const ms = h.s.reduce((a,b)=>a+b)/h.s.length, mc = h.c.reduce((a,b)=>a+b)/h.c.length;
+      out.windDir.push(((Math.atan2(ms,mc)*180/Math.PI)+360)%360);
+    } else { out.windDir.push(null); }
+    out.precipRate.push(Math.max(0, Math.round(h.p*1000)/1000));
+  });
+  return out.ts.length ? out : null;
 }
 
 function filterRaw(start, end) {
@@ -1567,6 +1625,55 @@ function _getStats() {
   return raw ? _computeStats(raw) : {ws:ALL_DATA.stats.wind,ss:ALL_DATA.stats.solar,ps:ALL_DATA.stats.precipitation,cs:ALL_DATA.stats.cross};
 }
 
+let _wrSums = null;
+
+function _addWrArrows(gd) {
+  requestAnimationFrame(() => {
+    try {
+      gd.querySelectorAll('.wr-arrows').forEach(el => el.remove());
+      if (!_wrSums || !_wrSums.some(s => s > 0)) return;
+      const pg = gd.querySelector('g.polar');
+      if (!pg) return;
+      const mt = (pg.getAttribute('transform') || '').match(/translate\(([0-9.-]+)[,\s]+([0-9.-]+)\)/);
+      if (!mt) return;
+      const cx = parseFloat(mt[1]), cy = parseFloat(mt[2]);
+      const fl = gd._fullLayout, pol = fl && fl.polar;
+      if (!pol) return;
+      const rMax = pol.radialaxis && pol.radialaxis.range ? pol.radialaxis.range[1] : Math.max(..._wrSums);
+      let rPx = pol._subplot && pol._subplot.r;
+      if (!rPx) {
+        const dom = pol.domain || {x:[0,1],y:[0,1]};
+        const mg = fl.margin || {};
+        const pw = (dom.x[1]-dom.x[0]) * Math.max(1, fl.width - (mg.l||0) - (mg.r||0));
+        const ph = (dom.y[1]-dom.y[0]) * Math.max(1, fl.height - (mg.t||0) - (mg.b||0));
+        rPx = Math.min(pw, ph) / 2 * 0.75;
+      }
+      if (!rPx || !rMax) return;
+      const svg = gd.querySelector('svg.main-svg');
+      if (!svg) return;
+      const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+      g.setAttribute('class','wr-arrows');
+      _wrSums.forEach((s, i) => {
+        if (s < 0.5) return;
+        const r = (s / rMax) * rPx;
+        const ang = (i * 22.5 - 90) * Math.PI / 180;
+        const tx = cx + r * Math.cos(ang), ty = cy + r * Math.sin(ang);
+        const aL = 8, aW = 5;
+        const tpx = tx - Math.cos(ang)*aL, tpy = ty - Math.sin(ang)*aL;
+        const lwx = tx - Math.sin(ang)*aW, lwy = ty + Math.cos(ang)*aW;
+        const rwx = tx + Math.sin(ang)*aW, rwy = ty - Math.cos(ang)*aW;
+        const p = document.createElementNS('http://www.w3.org/2000/svg','path');
+        p.setAttribute('d',`M${lwx.toFixed(1)} ${lwy.toFixed(1)} L${tpx.toFixed(1)} ${tpy.toFixed(1)} L${rwx.toFixed(1)} ${rwy.toFixed(1)}`);
+        p.setAttribute('stroke','#c0392b'); p.setAttribute('stroke-width','2.5');
+        p.setAttribute('fill','none'); p.setAttribute('stroke-linecap','round');
+        p.setAttribute('stroke-linejoin','round');
+        g.appendChild(p);
+      });
+      svg.appendChild(g);
+    } catch(e) { console.warn('wr-arrow err:',e); }
+  });
+}
+
 function _buildWindRose(raw) {
   const total=raw.avgWind.filter(v=>v!=null).length, calm=raw.avgWind.filter(v=>v!=null&&v<=_CALM_KPH).length;
   const calmPct=total?Math.round(calm/total*1000)/10:0;
@@ -1576,6 +1683,9 @@ function _buildWindRose(raw) {
     raw.avgWind.forEach((v,i)=>{ if(v==null||v<=_CALM_KPH||v<lo||v>=hi) return; const d=_cBin(raw.windDir[i]); if(d) cnt[d]++; });
     return {type:'barpolar',r:_C16.map(d=>total?Math.round(cnt[d]/total*10000)/100:0),theta:_C16,name:lbl+' '+wLabel(),marker:{color:_WC[li]}};
   });
+  const sums=new Array(16).fill(0);
+  traces.forEach(tr=>tr.r.forEach((v,j)=>{sums[j]+=v;}));
+  _wrSums = sums.slice();
   return {data:traces, calmPct,
     layout:{polar:{angularaxis:{direction:'clockwise',rotation:90,tickmode:'array',tickvals:Array.from({length:16},(_,i)=>i*22.5),ticktext:_C16},radialaxis:{ticksuffix:'%',angle:45}},barmode:'stack',bargap:0,showlegend:true,legend:{x:1.1,y:1}}};
 }
@@ -1637,10 +1747,12 @@ function _buildDrivingRain(raw) {
     });
   });
   Object.keys(facadeDRI).forEach(k=>facadeDRI[k]=Math.round(facadeDRI[k]*10)/10);
+  const di=vals.indexOf(Math.max(...vals));
   return {data:[{type:'barpolar',r:vals,theta:_C16,name:'DRI',marker:{color:'#1f77b4'}}],
-    dominantDir:_C16[vals.indexOf(Math.max(...vals))], facadeDRI,
+    dominantDir:_C16[di], facadeDRI,
     layout:{polar:{angularaxis:{direction:'clockwise',rotation:90},radialaxis:{visible:true}}}};
 }
+
 
 function _buildWindRainCoincidence(raw) {
   const WE = state.windUnit === 'ms' ? [0,0.1,0.3,0.6,0.8,1.0,1.4,1.9,2.8,3.9,5.6,999]
@@ -1839,15 +1951,27 @@ function _buildWindCategoryDist(raw) {
       const durStr = isPct ? xVals[i]+'%' : fmtDuration(xVals[i]);
       return '<b>'+b.label+'</b> ('+s.name+')<br>Range: '+fmtRange(b)+'<br>Count: '+counts[i]+'<br>'+xTitle+': '+durStr+'<extra></extra>';
     });
+    const seriesIdx = traceData.length;
+    const barOpacity = series.length === 1 ? 1 : (seriesIdx === 0 ? 1 : 0.55);
     traceData.push({
       type:'bar', orientation:'h', name: s.name,
       y: bands.map(b=>b.label), x: xVals,
-      marker: {color: series.length === 1 ? _catColors(bands.length) : s.color},
+      marker: {color: _catColors(bands.length), opacity: barOpacity},
       hovertemplate: hover, customdata: counts,
       text: series.length === 1 ? rangeText : null,
       textposition: 'outside',
       textfont: {size: 10, color: '#555'},
       cliponaxis: false,
+      showlegend: false,
+      legendgroup: s.name,
+    });
+    // Phantom trace for a clean, representative legend swatch
+    traceData.push({
+      type:'scatter', x:[null], y:[null], name: s.name,
+      mode:'markers',
+      marker: {symbol:'square', size:10, color: seriesIdx === 0 ? '#222' : '#999'},
+      showlegend: series.length > 1,
+      legendgroup: s.name,
     });
   });
 
@@ -2036,11 +2160,20 @@ function updatePlot() {
   // Pre-compute filtered chart for aggregated chart types (needed by stats panel)
   _computedChart = null;
   if (_RAW_BUILDERS[ct] && ALL_DATA.raw) {
-    // wind-category-dist always rebuilds from raw (system/denom switching needs it in all time modes)
-    const alwaysCompute = ct === 'wind-category-dist';
-    if (alwaysCompute || state.timeMode !== 'all') {
+    const alwaysCompute = ct === 'wind-category-dist' || ct === 'wind-rose';
+    const use1h = ct === 'driving-rain' && state.driResample === '1h';
+
+    if (use1h && state.timeMode === 'all') {
+      // Use Python-precomputed hourly DRI (avoids resampling 13k readings in JS)
+      _computedChart = ALL_DATA.driHourly || null;
+    } else if (alwaysCompute || state.timeMode !== 'all' || use1h) {
       const {start, end} = getTimeRange();
-      const raw = (alwaysCompute && state.timeMode === 'all') ? ALL_DATA.raw : filterRaw(start, end);
+      let raw;
+      if (use1h) {
+        raw = _resampleRawHourly(filterRaw(start, end));
+      } else {
+        raw = (alwaysCompute && state.timeMode === 'all') ? ALL_DATA.raw : filterRaw(start, end);
+      }
       if (raw) _computedChart = _RAW_BUILDERS[ct](raw) || null;
     }
   }
@@ -2073,6 +2206,7 @@ function updatePlot() {
     layout.autosize = true;
     layout.font = {family: 'Ubuntu, sans-serif', size: 12};
     Plotly.react(chartEl, _computedChart.data, layout, config);
+    if (ct === 'wind-rose') _addWrArrows(chartEl);
     state.savedZoom = null;
     return;
   }

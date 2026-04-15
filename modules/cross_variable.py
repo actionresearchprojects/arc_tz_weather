@@ -15,6 +15,41 @@ from .common import (
 )
 
 
+def build_driving_rain_hourly(df, precip_incr):
+    """Build DRI chart from hourly-resampled data (ISO 15927-3 methodology).
+
+    5-minute Omnisense data captures instantaneous rain-rate spikes that inflate
+    DRI non-linearly via the r^(8/9) exponent. Resampling to hourly accumulations
+    (summing incremental mm per hour) gives a stable directional signal consistent
+    with the standard methodology and comparable to hourly reanalysis data.
+
+    Args:
+        df: Quality-controlled weather station DataFrame.
+        precip_incr: Reset-corrected incremental precipitation series (mm per reading).
+    Returns:
+        DRI chart config dict (same structure as _build_driving_rain_index output).
+    """
+    df_h = df[['timestamp', 'avg_wind_kph', 'wind_dir']].copy()
+    df_h['_precip_incr'] = precip_incr.values if hasattr(precip_incr, 'values') else list(precip_incr)
+    df_h['_hour'] = df_h['timestamp'].dt.floor('h')
+
+    wd_rad = np.radians(df_h['wind_dir'].astype(float))
+    df_h['_sin'] = np.sin(wd_rad)
+    df_h['_cos'] = np.cos(wd_rad)
+
+    agg = df_h.groupby('_hour', as_index=False).agg(
+        avg_wind_kph=('avg_wind_kph', 'mean'),
+        _sin=('_sin', 'mean'),
+        _cos=('_cos', 'mean'),
+        precip_rate_mmh=('_precip_incr', 'sum'),
+    )
+    agg.rename(columns={'_hour': 'timestamp'}, inplace=True)
+    agg['wind_dir'] = (np.degrees(np.arctan2(agg['_sin'], agg['_cos'])) % 360)
+    agg['precip_rate_mmh'] = agg['precip_rate_mmh'].clip(lower=0)
+
+    return _build_driving_rain_index(agg[['timestamp', 'avg_wind_kph', 'wind_dir', 'precip_rate_mmh']])
+
+
 def process(df, rain_events=None):
     """Process cross-variable analyses and return chart configs, stats."""
     xdf = df.copy()
