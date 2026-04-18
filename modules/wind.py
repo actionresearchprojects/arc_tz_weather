@@ -29,6 +29,7 @@ def process(df):
     wdf = df.copy()
 
     # Quality-control wind before any analysis (see common.wind_qc for full rules):
+    # - avg spike: ratio > 3x rolling median AND > 20 km/h
     # - avg ceiling: avg_wind_kph > 60 km/h (above Beaufort 7, implausible at this site)
     # - bounce filter: peak/avg ratio > 8 AND peak > 25 km/h (reed switch artefact)
     # - peak ceiling: peak_wind_kph > 100 km/h
