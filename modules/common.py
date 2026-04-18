@@ -375,16 +375,23 @@ def peak_wind_qc(df):
     return wind_qc(df)
 
 
-def insert_gap_breaks(timestamps_ms, *value_lists, gap_ms=1_800_000):
-    """Insert None into parallel value lists wherever the timestamp gap exceeds gap_ms.
+def insert_gap_breaks(timestamps_ms, *value_lists, gap_ms=1_800_000, fill_value=None):
+    """Insert break points into parallel value lists wherever the timestamp gap exceeds gap_ms.
 
-    Plotly draws no line segment when a y value is None, so this prevents diagonal
-    lines across data gaps. Default gap threshold is 30 minutes.
+    For line traces (fill_value=None): inserts a single null at the midpoint of each gap.
+    Plotly draws no line segment through null y values.
+
+    For fill traces (fill_value=0): inserts explicit zero-valued points at both edges of
+    each gap. This is necessary because Plotly's fill polygon is a single closed shape;
+    a null in the middle still connects the last pre-gap and first post-gap points at y=0,
+    producing a diagonal edge in the filled area. Flanking zeros make the polygon drop
+    vertically to the baseline at both gap boundaries instead.
 
     Args:
         timestamps_ms: list of epoch-millisecond timestamps (must be sorted).
         *value_lists:  one or more parallel lists of values (same length).
-        gap_ms:        minimum gap in milliseconds to trigger a break (default 30 min).
+        gap_ms:        minimum gap in ms to trigger a break (default 30 min).
+        fill_value:    value to insert at gap edges; None inserts a null for line breaks.
 
     Returns:
         (new_timestamps_ms, new_values1, new_values2, ...) — same structure, longer.
@@ -397,10 +404,18 @@ def insert_gap_breaks(timestamps_ms, *value_lists, gap_ms=1_800_000):
 
     for i, ts in enumerate(timestamps_ms):
         if i > 0 and (ts - timestamps_ms[i - 1]) > gap_ms:
-            mid = (timestamps_ms[i - 1] + ts) // 2
-            out_ts.append(mid)
-            for lst in out_vals:
-                lst.append(None)
+            if fill_value is not None:
+                # Add a zero at the trailing edge and the leading edge of the gap
+                out_ts.append(timestamps_ms[i - 1] + 1)
+                out_ts.append(ts - 1)
+                for lst in out_vals:
+                    lst.append(fill_value)
+                    lst.append(fill_value)
+            else:
+                mid = (timestamps_ms[i - 1] + ts) // 2
+                out_ts.append(mid)
+                for lst in out_vals:
+                    lst.append(None)
         out_ts.append(ts)
         for j, lst in enumerate(out_vals):
             lst.append(value_lists[j][i])
