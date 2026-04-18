@@ -25,7 +25,7 @@ import pandas as pd
 
 from modules.common import (
     load_weather_csv, find_latest_csv, build_available_periods,
-    spike_filter, detect_precip_resets, to_eat_ms, TIMEZONE,
+    wind_qc, detect_precip_resets, to_eat_ms, TIMEZONE,
 )
 from modules import wind, solar, precipitation, cross_variable
 
@@ -340,7 +340,7 @@ def build_dashboard(csv_path=None):
 
     # Build raw timeseries for client-side recomputation when range is filtered
     df_r = df.copy()
-    df_r["peak_wind_kph"] = spike_filter(df_r["peak_wind_kph"], 150)
+    df_r = wind_qc(df_r)
     precip_incr = detect_precip_resets(df_r["precip_total_mm"]).diff().clip(lower=0).fillna(0)
     raw_data = {
         "ts":         [to_eat_ms(t) for t in df_r["timestamp"]],

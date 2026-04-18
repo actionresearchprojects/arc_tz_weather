@@ -13,7 +13,7 @@ from .common import (
     COMPASS_DIRS_16, COMPASS_DIRS_8, WIND_SPEED_BINS, WIND_SPEED_LABELS,
     WIND_SPEED_COLORS, BEAUFORT_SCALE, VENTILATION_COLORS, WIND_CLASSIFICATIONS,
     KN_TO_KPH, TIMEZONE, CALM_THRESHOLD_KPH,
-    peak_wind_qc, compass_bin, beaufort_number, weibull_fit, to_eat_ms,
+    wind_qc, compass_bin, beaufort_number, weibull_fit, to_eat_ms,
     get_season_boundaries,
 )
 
@@ -28,11 +28,12 @@ def process(df):
     """
     wdf = df.copy()
 
-    # Quality-control peak wind before any analysis:
-    # - flag reed switch bounce (avg < 1.0 km/h and peak > 25 km/h)
-    # - flag implausible ceiling (peak > 100 km/h)
-    # Flagged values are set to NaN; avg_wind_kph is unchanged.
-    wdf = peak_wind_qc(wdf)
+    # Quality-control wind before any analysis (see common.wind_qc for full rules):
+    # - avg ceiling: avg_wind_kph > 60 km/h (above Beaufort 7, implausible at this site)
+    # - bounce filter: peak/avg ratio > 8 AND peak > 25 km/h (reed switch artefact)
+    # - peak ceiling: peak_wind_kph > 100 km/h
+    # Flagged values are set to NaN.
+    wdf = wind_qc(wdf)
 
     # Compass direction labels
     wdf["compass_16"] = wdf["wind_dir"].apply(lambda d: compass_bin(d, 16))
