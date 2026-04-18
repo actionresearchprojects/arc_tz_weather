@@ -403,6 +403,13 @@ def _build_gust_factor(wdf):
     valid = valid[valid["gust_factor"] < 20]
 
     timestamps = [to_eat_ms(t) for t in valid["timestamp"]]
+    eat_labels = [t.strftime("%d %b %Y, %H:%M") for t in valid["timestamp"]]
+    # customdata columns: [hour, peak_kph, eat_label]
+    customdata = list(zip(
+        valid["hour"].tolist(),
+        [round(v, 1) for v in valid["peak_wind_kph"]],
+        eat_labels,
+    ))
 
     traces = [{
         "type": "scatter",
@@ -411,6 +418,7 @@ def _build_gust_factor(wdf):
         "x_ms": timestamps,
         "x_speed": [round(v, 1) for v in valid["avg_wind_kph"]],
         "y": [round(v, 2) for v in valid["gust_factor"]],
+        "customdata": customdata,
         "marker": {
             "color": valid["hour"].tolist(),
             "colorscale": "Viridis",

@@ -2294,13 +2294,24 @@ function updatePlot() {
     if (layout.xaxis) layout.xaxis.title = 'Wind Speed (' + wLabel() + ')';
   } else if (ct === 'gust-factor') {
     if (_needsConv) {
-      traces.forEach(tr => { if (tr.x) tr.x = tr.x.map(v => wToUnit(v)); });
+      traces.forEach(tr => {
+        if (tr.x) tr.x = tr.x.map(v => wToUnit(v));
+        if (tr.customdata) tr.customdata = tr.customdata.map(row => [row[0], wToUnit(row[1]), row[2]]);
+      });
       if (layout.shapes) layout.shapes = layout.shapes.map(s => {
         if (s.x0 != null && s.x1 != null) return Object.assign({}, s, {x0: wToUnit(s.x0), x1: wToUnit(s.x1)});
         return s;
       });
     }
     if (layout.xaxis) layout.xaxis.title = 'Average Wind Speed (' + wLabel() + ')';
+    traces.forEach(tr => {
+      tr.hovertemplate =
+        'Time: %{customdata[2]} EAT<br>' +
+        'Hour: %{customdata[0]}:00<br>' +
+        'Avg speed: %{x:.1f} ' + wLabel() + '<br>' +
+        'Peak gust: %{customdata[1]:.1f} ' + wLabel() + '<br>' +
+        'Gust factor: %{y:.2f}<extra></extra>';
+    });
   } else if (ct === 'pre-storm') {
     if (_needsConv && traces[0] && traces[0].y) traces[0].y = traces[0].y.map(_cvt);
     if (traces[0]) traces[0].name = 'Wind Speed (' + wLabel() + ')';
