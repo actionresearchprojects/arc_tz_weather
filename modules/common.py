@@ -32,9 +32,15 @@ MS_TO_KN  = 900 / 463   # knots per m/s
 CALM_THRESHOLD_KPH = 0.36
 
 # Wind QC thresholds
-# avg_wind: 60 km/h is top of Beaufort 7 (Near Gale, ~32 kn). A sustained 5-minute
-# average above this is physically implausible at this coastal Tanzania site.
-AVG_WIND_CEIL_KPH  = 60
+# avg_wind spike detection: flag readings that are isolated jumps relative to local context.
+# A reading is flagged if it exceeds AVG_SPIKE_RATIO * local rolling median AND exceeds
+# AVG_SPIKE_MIN_KPH. The rolling window is centered so the spike itself does not dominate
+# the median (a single outlier in ~12 readings cannot shift the median significantly).
+# This approach tolerates genuine sustained high-wind events (the local median rises with
+# the data) but catches single-point sensor errors regardless of their absolute value.
+AVG_SPIKE_RATIO   = 3.0   # must exceed 3x the local rolling median to be flagged
+AVG_SPIKE_WINDOW  = 12    # readings in the rolling window (~1 hour at 5-min intervals)
+AVG_SPIKE_MIN_KPH = 20    # minimum speed to apply ratio test (avoids near-zero false positives)
 # peak_wind: hard absolute ceiling regardless of average.
 PEAK_WIND_CEIL_KPH = 100
 # Bounce ratio: peak/avg ratio above this threshold indicates reed switch bounce.
@@ -312,8 +318,10 @@ def wind_qc(df):
     Three filters are applied:
 
     avg_wind_kph:
-      1. Ceiling filter: avg_wind_kph > AVG_WIND_CEIL_KPH (60 km/h). A sustained
-         5-minute average above Beaufort 7 is physically implausible at this site.
+      1. Spike filter: reading > AVG_SPIKE_RATIO (3x) * local rolling median AND reading
+         > AVG_SPIKE_MIN_KPH (20 km/h). Catches isolated sensor jumps at any speed level
+         without rejecting genuine sustained high-wind events, where the local median
+         rises with the data so the ratio stays reasonable.
 
     peak_wind_kph:
       2. Reed switch bounce: peak/avg ratio > BOUNCE_RATIO (8) AND peak > BOUNCE_MIN_PEAK_KPH
@@ -332,8 +340,13 @@ def wind_qc(df):
     """
     import numpy as np
 
-    # avg ceiling
-    avg_flagged = df["avg_wind_kph"] > AVG_WIND_CEIL_KPH
+    # avg spike filter: flag readings that jump above 3x local rolling median
+    rolling_med = (
+        df["avg_wind_kph"]
+        .rolling(AVG_SPIKE_WINDOW, center=True, min_periods=3)
+        .median()
+    )
+    avg_flagged = (df["avg_wind_kph"] > rolling_med * AVG_SPIKE_RATIO) & (df["avg_wind_kph"] > AVG_SPIKE_MIN_KPH)
     df["avg_wind_flagged"] = avg_flagged
     df.loc[avg_flagged, "avg_wind_kph"] = np.nan
 
