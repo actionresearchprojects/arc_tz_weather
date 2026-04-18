@@ -375,6 +375,39 @@ def peak_wind_qc(df):
     return wind_qc(df)
 
 
+def insert_gap_breaks(timestamps_ms, *value_lists, gap_ms=1_800_000):
+    """Insert None into parallel value lists wherever the timestamp gap exceeds gap_ms.
+
+    Plotly draws no line segment when a y value is None, so this prevents diagonal
+    lines across data gaps. Default gap threshold is 30 minutes.
+
+    Args:
+        timestamps_ms: list of epoch-millisecond timestamps (must be sorted).
+        *value_lists:  one or more parallel lists of values (same length).
+        gap_ms:        minimum gap in milliseconds to trigger a break (default 30 min).
+
+    Returns:
+        (new_timestamps_ms, new_values1, new_values2, ...) — same structure, longer.
+    """
+    if not timestamps_ms:
+        return (timestamps_ms,) + value_lists
+
+    out_ts = []
+    out_vals = [[] for _ in value_lists]
+
+    for i, ts in enumerate(timestamps_ms):
+        if i > 0 and (ts - timestamps_ms[i - 1]) > gap_ms:
+            mid = (timestamps_ms[i - 1] + ts) // 2
+            out_ts.append(mid)
+            for lst in out_vals:
+                lst.append(None)
+        out_ts.append(ts)
+        for j, lst in enumerate(out_vals):
+            lst.append(value_lists[j][i])
+
+    return (out_ts,) + tuple(out_vals)
+
+
 def compass_bin(degrees, n_points=16):
     """Assign a compass direction label to a bearing in degrees."""
     dirs = COMPASS_DIRS_16 if n_points == 16 else COMPASS_DIRS_8

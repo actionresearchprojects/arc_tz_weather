@@ -14,7 +14,7 @@ from .common import (
     WIND_SPEED_COLORS, BEAUFORT_SCALE, VENTILATION_COLORS, WIND_CLASSIFICATIONS,
     KN_TO_KPH, TIMEZONE, CALM_THRESHOLD_KPH,
     wind_qc, compass_bin, beaufort_number, weibull_fit, to_eat_ms,
-    get_season_boundaries,
+    get_season_boundaries, insert_gap_breaks,
 )
 
 
@@ -189,6 +189,9 @@ def _build_wind_timeseries(wdf):
 
     avg_vals = [round(v, 1) if not pd.isna(v) else None for v in wdf["avg_wind_kph"]]
     peak_vals = [round(v, 1) if not pd.isna(v) else None for v in wdf["peak_wind_kph"]]
+
+    timestamps, avg_vals, peak_vals = insert_gap_breaks(timestamps, avg_vals, peak_vals)
+    rm_ts, rm_vals = insert_gap_breaks(rm_ts, rm_vals)
 
     season_bounds = get_season_boundaries(wdf)
 

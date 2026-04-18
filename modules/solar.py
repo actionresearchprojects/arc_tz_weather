@@ -10,7 +10,7 @@ import numpy as np
 
 from .common import (
     SOLAR_COLORS, LATITUDE, LONGITUDE, TIMEZONE, to_eat_ms,
-    extraterrestrial_radiation, get_season_boundaries,
+    extraterrestrial_radiation, get_season_boundaries, insert_gap_breaks,
 )
 
 
@@ -147,6 +147,7 @@ def _build_solar_timeseries(sdf):
     """Build solar radiation time series area chart."""
     timestamps = [to_eat_ms(t) for t in sdf["timestamp"]]
     values = [round(v, 1) if not pd.isna(v) else None for v in sdf["solar_wm2"]]
+    timestamps, values = insert_gap_breaks(timestamps, values)
     season_bounds = get_season_boundaries(sdf)
 
     traces = [{
