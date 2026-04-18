@@ -348,7 +348,7 @@ def _build_wind_distribution(wdf, k_val, c_val):
     traces = [{
         "type": "bar",
         "name": "Frequency",
-        "x": [round(b, 1) for b in bin_centers],
+        "x": [round(b, 2) for b in bin_centers],
         "y": hist.tolist(),
         "marker": {"color": "#1f77b4"},
     }]
