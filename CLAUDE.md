@@ -20,7 +20,7 @@ Weather station dashboard for the ARC ecovillage near Mkuranga, Tanzania. Self-c
 - **Graphing**: Use `toEATString(ms)` helper in JS to prevent Plotly from converting to browser-local time.
 - **No em dashes**: Use commas or semicolons in all text, tooltips, and labels.
 - **Data source**: Only the Omnisense CSV (sensor 30B40014). No TinyTag, no Open-Meteo.
-- **Spike filter**: peak_wind_kph > 150 replaced with NaN.
+- **Wind QC** (`modules/common.py:wind_qc`): avg spike filter (3x rolling median, ceiling 60 km/h); peak bounce filter (ratio > 8, ceiling 100 km/h); peak < avg flagged as physically impossible. All flagged values set to NaN.
 - **Precipitation resets**: Cumulative total resets detected and corrected automatically.
 - **Commit messages**: Professional and specific. Describe what changed and why.
 
