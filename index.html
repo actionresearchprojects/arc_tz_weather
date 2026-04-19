@@ -189,9 +189,13 @@ optgroup{font-weight:600;font-style:normal}
 
     <!-- Solar distribution granularity (solar-distribution only) -->
     <div id="solar-dist-controls">
-      <div class="ds-label">Bin Size</div>
+      <div class="ds-label">Bin Size (W/m²)</div>
       <div class="wind-unit-notch">
-        <button id="sd-25" class="wind-unit-btn" onclick="setSolarDistBin(25)">25 W/m²</button><button id="sd-50" class="wind-unit-btn active" onclick="setSolarDistBin(50)">50 W/m²</button><button id="sd-100" class="wind-unit-btn" onclick="setSolarDistBin(100)">100 W/m²</button>
+        <button id="sd-25" class="wind-unit-btn" onclick="setSolarDistBin(25)">25</button><button id="sd-50" class="wind-unit-btn active" onclick="setSolarDistBin(50)">50</button><button id="sd-100" class="wind-unit-btn" onclick="setSolarDistBin(100)">100</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:4px;margin-top:5px">
+        <span style="font-size:10px;color:#666">Custom:</span>
+        <input id="sd-custom" type="number" min="5" max="500" step="5" placeholder="e.g. 75" style="width:60px;font-size:10px;padding:1px 4px;border:1px solid #ccc;border-radius:3px" onchange="setSolarDistBinCustom(this.value)">
       </div>
     </div>
 
@@ -1324,7 +1328,7 @@ function updateStatsPanel() {
       html += statsRow('Overcast', chart.overcastPct + '%');
     }
     if (ct === 'solar-distribution' && chart) {
-      html += statsRow('Modal bin', chart.modalBin);
+      html += statsRow('Modal bin', (_computedChart || chart).modalBin);
     }
   } else if (ct.startsWith('cumulative') || ct.startsWith('daily-rain') || ct.startsWith('rainfall') || ct === 'diurnal-rainfall' || ct === 'avg-rainfall-profiles' || ct === 'dry-spells' || ct === 'rain-events') {
     html += statsRow('Total rainfall', ps.totalRainfall + ' mm');
@@ -1851,6 +1855,15 @@ function _buildCalmPeriods(raw) {
 function setSolarDistBin(sz) {
   state.solarDistBinSize = sz;
   ['25','50','100'].forEach(v => document.getElementById('sd-'+v).classList.toggle('active', parseInt(v)===sz));
+  document.getElementById('sd-custom').value = '';
+  updatePlot();
+}
+
+function setSolarDistBinCustom(val) {
+  const v = parseInt(val);
+  if (!v || v < 5 || v > 500) return;
+  state.solarDistBinSize = v;
+  ['25','50','100'].forEach(b => document.getElementById('sd-'+b).classList.remove('active'));
   updatePlot();
 }
 
@@ -2298,7 +2311,7 @@ function updatePlot() {
   // Pre-compute filtered chart for aggregated chart types (needed by stats panel)
   _computedChart = null;
   if (_RAW_BUILDERS[ct] && ALL_DATA.raw) {
-    const alwaysCompute = ct === 'wind-category-dist' || ct === 'wind-rose';
+    const alwaysCompute = ct === 'wind-category-dist' || ct === 'wind-rose' || ct === 'solar-distribution';
     const use1h = ct === 'driving-rain' && state.driResample === '1h';
 
     if (use1h && state.timeMode === 'all') {
