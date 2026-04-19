@@ -317,7 +317,7 @@ def spike_filter(series, max_val):
 def wind_qc(df):
     """Apply quality control to wind columns in-place and return the DataFrame.
 
-    Three filters are applied:
+    Four filters are applied:
 
     avg_wind_kph:
       1. Spike filter: reading > AVG_SPIKE_RATIO (3x) * local rolling median AND reading
@@ -328,11 +328,14 @@ def wind_qc(df):
          survive the ratio test because the local rolling median is already elevated.
 
     peak_wind_kph:
-      2. Reed switch bounce: peak/avg ratio > BOUNCE_RATIO (8) AND peak > BOUNCE_MIN_PEAK_KPH
+      3. Reed switch bounce: peak/avg ratio > BOUNCE_RATIO (8) AND peak > BOUNCE_MIN_PEAK_KPH
          (25 km/h). A ratio this extreme indicates a mechanical sensor artefact where the
          anemometer cup briefly spins fast from a single gust. Rows where avg == 0 and
          peak > 25 are treated as infinite ratio and flagged.
-      3. Ceiling filter: peak_wind_kph > PEAK_WIND_CEIL_KPH (100 km/h).
+      4. Ceiling filter: peak_wind_kph > PEAK_WIND_CEIL_KPH (100 km/h).
+      5. Physical impossibility: peak_wind_kph < avg_wind_kph. A 5-minute peak cannot be
+         lower than the 5-minute average; occurs as a sensor stall artefact at near-calm
+         conditions and occasionally at higher speeds due to logging errors.
 
     Flagged values are replaced with NaN. Boolean columns 'avg_wind_flagged' and
     'peak_wind_flagged' are added (True = flagged).
@@ -363,7 +366,8 @@ def wind_qc(df):
     ratio = np.where(safe_avg.isna(), np.inf, df["peak_wind_kph"] / safe_avg)
     bounce_mask = (np.array(ratio) > BOUNCE_RATIO) & (df["peak_wind_kph"] > BOUNCE_MIN_PEAK_KPH)
     ceiling_mask = df["peak_wind_kph"] > PEAK_WIND_CEIL_KPH
-    peak_flagged = bounce_mask | ceiling_mask
+    impossible_mask = df["peak_wind_kph"] < df["avg_wind_kph"]
+    peak_flagged = bounce_mask | ceiling_mask | impossible_mask
 
     df["peak_wind_flagged"] = peak_flagged
     df.loc[peak_flagged, "peak_wind_kph"] = np.nan
