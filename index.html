@@ -104,6 +104,8 @@ optgroup{font-weight:600;font-style:normal}
 #wr-slider-wrap label{font-size:11px;cursor:pointer}
 #dri-resample-wrap{display:none;padding:4px 0 0 0}
 #dri-resample-wrap .ds-label{font-size:10px;color:#666;margin-bottom:2px}
+#solar-dist-controls{display:none;padding:4px 0 0 0}
+#solar-dist-controls .ds-label{font-size:10px;color:#666;margin-bottom:2px}
 #wr-slider-bar{display:none;background:white;border-top:1px solid #ddd;padding:6px 12px 8px;flex-shrink:0}
 #wr-slider-bar .wr-sl-row{display:flex;align-items:center;gap:8px}
 #wr-slider-bar input[type=range]{flex:1;margin:0}
@@ -182,6 +184,14 @@ optgroup{font-weight:600;font-style:normal}
             <option value="2592000000">1 month</option>
           </select>
         </label>
+      </div>
+    </div>
+
+    <!-- Solar distribution granularity (solar-distribution only) -->
+    <div id="solar-dist-controls">
+      <div class="ds-label">Bin Size</div>
+      <div class="wind-unit-notch">
+        <button id="sd-25" class="wind-unit-btn" onclick="setSolarDistBin(25)">25 W/m²</button><button id="sd-50" class="wind-unit-btn active" onclick="setSolarDistBin(50)">50 W/m²</button><button id="sd-100" class="wind-unit-btn" onclick="setSolarDistBin(100)">100 W/m²</button>
       </div>
     </div>
 
@@ -876,6 +886,7 @@ const state = {
   periodCycle: 'day',
   periodGroupBy: 'hour',
   driResample: '5min',      // '5min' | '1h' (driving rain resampling)
+  solarDistBinSize: 50,     // bin width in W/m² for solar distribution histogram
   windUnit: 'kmh',  // 'ms' = m/s, 'kmh' = km/h (default)
   windCatSystem: 'lawson',     // classification system for wind-category-dist
   windCatValueUnit: 'pct',     // count by: pct|hours|days|weeks|months
@@ -1222,6 +1233,8 @@ function updateSidebarControls() {
   if (isWindCatDist) _updateWindCatCycleOptions();
   // Show/hide DRI resampling toggle
   document.getElementById('dri-resample-wrap').style.display = ct === 'driving-rain' ? 'block' : 'none';
+  // Show/hide solar distribution granularity control
+  document.getElementById('solar-dist-controls').style.display = ct === 'solar-distribution' ? 'block' : 'none';
 }
 
 // ── Stats Panel ──────────────────────────────────────────────────────────────
@@ -1835,9 +1848,15 @@ function _buildCalmPeriods(raw) {
     layout:{xaxis:{title:'Number of Periods'},yaxis:{title:'Duration',autorange:'reversed'}}};
 }
 
+function setSolarDistBin(sz) {
+  state.solarDistBinSize = sz;
+  ['25','50','100'].forEach(v => document.getElementById('sd-'+v).classList.toggle('active', parseInt(v)===sz));
+  updatePlot();
+}
+
 function _buildSolarDist(raw) {
   const s=raw.solar.filter(v=>v!=null&&v>0); if(!s.length) return null;
-  const SZ=50,n=Math.ceil(Math.max(...s)/SZ),ctrs=Array.from({length:n},(_,i)=>(i+0.5)*SZ);
+  const SZ=state.solarDistBinSize||50,n=Math.ceil(Math.max(...s)/SZ),ctrs=Array.from({length:n},(_,i)=>(i+0.5)*SZ);
   const cnts=new Array(n).fill(0);
   s.forEach(v=>{ cnts[Math.min(Math.floor(v/SZ),n-1)]++; });
   const cols=ctrs.map(c=>c<200?'#4575b4':c<500?'#fee090':c<800?'#fc8d59':'#d73027');
