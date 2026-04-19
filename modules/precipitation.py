@@ -212,27 +212,16 @@ def _build_cumulative_rainfall(pdf):
 
 
 def _build_daily_rainfall(daily):
-    """Build daily rainfall bar chart with intensity coloring."""
+    """Build daily rainfall bar chart."""
     dates_ms = [d["date_ms"] for d in daily]
     totals = [d["total_mm"] for d in daily]
-
-    colors = []
-    for v in totals:
-        if v < 2.5:
-            colors.append(RAIN_DAILY_COLORS["light"])
-        elif v < 7.5:
-            colors.append(RAIN_DAILY_COLORS["moderate"])
-        elif v < 25:
-            colors.append(RAIN_DAILY_COLORS["heavy"])
-        else:
-            colors.append(RAIN_DAILY_COLORS["very_heavy"])
 
     traces = [{
         "type": "bar",
         "name": "Daily Rainfall",
         "x_ms": dates_ms,
         "y": totals,
-        "marker": {"color": colors},
+        "marker": {"color": "#4A90D9"},
     }]
 
     layout = {
