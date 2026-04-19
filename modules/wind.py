@@ -395,11 +395,7 @@ def _build_wind_distribution(wdf, k_val, c_val):
 
 def _build_gust_factor(wdf):
     """Build gust factor scatter plot (gust factor vs avg speed, colored by hour)."""
-    valid = wdf[
-        (wdf["avg_wind_kph"] > CALM_THRESHOLD_KPH) &
-        wdf["peak_wind_kph"].notna() &
-        (wdf["peak_wind_kph"] >= wdf["avg_wind_kph"])
-    ].copy()
+    valid = wdf[(wdf["avg_wind_kph"] > CALM_THRESHOLD_KPH) & wdf["peak_wind_kph"].notna()].copy()
     valid["gust_factor"] = valid["peak_wind_kph"] / valid["avg_wind_kph"]
     valid["hour"] = valid["timestamp"].dt.hour
 
