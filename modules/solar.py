@@ -358,12 +358,23 @@ def _build_solar_distribution(sdf):
 def _build_clearness_index(daily_kt):
     """Build clearness index scatter plot.
 
+    Kt = daily measured insolation / extraterrestrial radiation H0. Both are
+    integrated over the same astronomical day (H0 uses the Duffie & Beckman
+    sunset hour angle; measured nighttime readings are zero), so Kt is
+    inherently a daytime metric by construction.
+
     Thresholds are calibrated for a humid tropical coastal site (Mkuranga, ~7S).
-    Standard temperate-climate thresholds (clear > 0.65, overcast < 0.35) are
-    inappropriate here: even on a genuinely clear day, high precipitable water
-    vapour and marine aerosols from the Indian Ocean suppress the clear-sky Kt
-    ceiling to approximately 0.55-0.65. Using temperate thresholds causes clear
-    days to be systematically mis-classified as partly cloudy.
+    The clear-sky ceiling is suppressed to ~0.55-0.65 by high precipitable water
+    vapour and marine aerosols from the Indian Ocean, so the standard temperate
+    clear threshold of 0.65 is inappropriate. The overcast threshold is raised
+    relative to arid-site practice because strong diffuse radiation in a
+    cloud-rich tropical atmosphere means genuinely overcast days can reach
+    Kt 0.30-0.40.
+
+    Bands (this site):
+      Clear        Kt > 0.55  (temperate: > 0.65)
+      Partly cloudy  0.35 < Kt <= 0.55
+      Overcast     Kt <= 0.35  (temperate: <= 0.35, same value; different reason)
 
     References:
     - Saunier, Reddy & Kumar (1987), Solar Energy 38(3): 169-177: generalised
@@ -383,10 +394,10 @@ def _build_clearness_index(daily_kt):
     dates_ms = daily_kt["date_ms"].tolist()
     kt_vals = daily_kt["kt"].tolist()
 
-    # Thresholds adjusted for humid tropical coastal climate (see docstring).
-    # Clear: Kt > 0.55, Partly cloudy: 0.25-0.55, Overcast: Kt <= 0.25
+    # Clear ceiling suppressed by coastal aerosols/humidity; overcast raised
+    # because tropical diffuse radiation keeps cloudy-day Kt above 0.25-0.30.
     KT_CLEAR = 0.55
-    KT_OVERCAST = 0.25
+    KT_OVERCAST = 0.35
 
     traces = [{
         "type": "scatter",
@@ -414,9 +425,9 @@ def _build_clearness_index(daily_kt):
         "annotations": [
             {"x": 1.02, "xref": "paper", "y": 0.77, "text": "Clear",
              "showarrow": False, "font": {"size": 10, "color": "#2ca02c"}},
-            {"x": 1.02, "xref": "paper", "y": 0.4, "text": "Partly Cloudy",
+            {"x": 1.02, "xref": "paper", "y": 0.45, "text": "Partly Cloudy",
              "showarrow": False, "font": {"size": 10, "color": "#b8860b"}},
-            {"x": 1.02, "xref": "paper", "y": 0.12, "text": "Overcast",
+            {"x": 1.02, "xref": "paper", "y": 0.17, "text": "Overcast",
              "showarrow": False, "font": {"size": 10, "color": "#4575b4"}},
         ],
     }
