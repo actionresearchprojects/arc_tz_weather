@@ -2306,7 +2306,12 @@ function updatePlot() {
   const _cvt = v => v != null ? wToUnit(v) : null;
   if (ct === 'wind-rose') {
     const binLabels = state.windUnit === 'ms' ? _WL_MS : state.windUnit === 'kn' ? _WL_KN : _WL;
-    traces.forEach((tr, i) => { if (i < binLabels.length) tr.name = binLabels[i] + ' ' + wLabel(); });
+    traces.forEach((tr, i) => {
+      if (i < binLabels.length) {
+        tr.name = binLabels[i] + ' ' + wLabel();
+        tr.hovertemplate = '%{theta}<br>Frequency: %{r:.2f}%<br>' + tr.name + '<extra></extra>';
+      }
+    });
   } else if (ct === 'wind-timeseries') {
     if (_needsConv) traces.forEach(tr => { if (tr.y) tr.y = tr.y.map(_cvt); });
     if (layout.yaxis) layout.yaxis.title = 'Wind Speed (' + wLabel() + ')';
@@ -2314,16 +2319,22 @@ function updatePlot() {
     const showAvg = document.getElementById('cb-wind-avg').checked;
     const showGust = document.getElementById('cb-wind-gust').checked;
     const show24h = document.getElementById('cb-wind-24h').checked;
-    if (traces[0]) traces[0].visible = showAvg;
-    if (traces[1]) traces[1].visible = showGust;
-    if (traces[2]) traces[2].visible = show24h;
+    if (traces[0]) { traces[0].visible = showAvg; traces[0].hovertemplate = '%{x}<br>Avg Wind: %{y:.1f} ' + wLabel() + '<extra></extra>'; }
+    if (traces[1]) { traces[1].visible = showGust; traces[1].hovertemplate = '%{x}<br>Peak Gust: %{y:.1f} ' + wLabel() + '<extra></extra>'; }
+    if (traces[2]) { traces[2].visible = show24h; traces[2].hovertemplate = '%{x}<br>12h Mean: %{y:.1f} ' + wLabel() + '<extra></extra>'; }
   } else if (ct === 'diurnal-wind') {
     // Traces 0-2: wind speed (mean, +1SD, -1SD); trace 3: Calm % on y2
     if (_needsConv) traces.slice(0, 3).forEach(tr => { if (tr.y) tr.y = tr.y.map(_cvt); });
     if (layout.yaxis) layout.yaxis.title = 'Wind Speed (' + wLabel() + ')';
+    if (traces[0]) traces[0].hovertemplate = '%{x}:00 EAT<br>Mean Wind: %{y:.1f} ' + wLabel() + '<extra></extra>';
+    if (traces[1]) traces[1].hoverinfo = 'skip';
+    if (traces[2]) traces[2].hoverinfo = 'skip';
+    if (traces[3]) traces[3].hovertemplate = '%{x}:00 EAT<br>Calm: %{y:.1f}%<extra></extra>';
   } else if (ct === 'wind-distribution') {
     if (_needsConv) traces.forEach(tr => { if (tr.x) tr.x = tr.x.map(v => wToUnit(v)); });
     if (layout.xaxis) layout.xaxis.title = 'Wind Speed (' + wLabel() + ')';
+    if (traces[0]) traces[0].hovertemplate = 'Wind Speed: %{x:.1f} ' + wLabel() + '<br>Count: %{y}<extra></extra>';
+    if (traces[1] && traces[1].type === 'scatter') traces[1].hovertemplate = 'Wind Speed: %{x:.1f} ' + wLabel() + '<br>Fitted: %{y:.1f}<extra></extra>';
   } else if (ct === 'gust-factor') {
     if (_needsConv) {
       traces.forEach(tr => {
@@ -2344,10 +2355,60 @@ function updatePlot() {
         'Peak gust: %{customdata[1]:.1f} ' + wLabel() + '<br>' +
         'Gust factor: %{y:.2f}<extra></extra>';
     });
+  } else if (ct === 'calm-periods') {
+    if (traces[0]) traces[0].hovertemplate = 'Duration: %{y}<br>Count: %{x}<extra></extra>';
+  } else if (ct === 'ventilation-availability') {
+    if (traces[0]) traces[0].hovertemplate = '%{x}<br>Effective: %{y:.1f} h<extra></extra>';
+    if (traces[1]) traces[1].hovertemplate = '%{x}<br>Marginal: %{y:.1f} h<extra></extra>';
+    if (traces[2]) traces[2].hovertemplate = '%{x}<br>Calm: %{y:.1f} h<extra></extra>';
+  } else if (ct === 'solar-timeseries') {
+    if (traces[0]) traces[0].hovertemplate = '%{x}<br>Solar Radiation: %{y:.1f} W/m²<extra></extra>';
+  } else if (ct === 'daily-insolation') {
+    if (traces[0]) traces[0].hovertemplate = '%{x}<br>Insolation: %{y:.3f} kWh/m²<extra></extra>';
+  } else if (ct === 'diurnal-solar') {
+    if (traces[0]) traces[0].hovertemplate = '%{x}:00 EAT<br>Mean Radiation: %{y:.1f} W/m²<extra></extra>';
+    if (traces[1]) traces[1].hoverinfo = 'skip';
+    if (traces[2]) traces[2].hoverinfo = 'skip';
+  } else if (ct === 'solar-distribution') {
+    if (traces[0]) traces[0].hovertemplate = 'Radiation: %{x:.0f} W/m²<br>Count: %{y}<extra></extra>';
+  } else if (ct === 'clearness-index') {
+    if (traces[0]) traces[0].hovertemplate = '%{x}<br>Clearness Index (Kt): %{y:.3f}<extra></extra>';
+  } else if (ct === 'peak-solar-hours') {
+    if (traces[0]) traces[0].hovertemplate = '%{x}<br>Peak Solar Hours: %{y:.2f} h<extra></extra>';
+  } else if (ct === 'cumulative-rainfall') {
+    if (traces[0]) traces[0].hovertemplate = '%{x}<br>Cumulative Rainfall: %{y:.1f} mm<extra></extra>';
+  } else if (ct === 'daily-rainfall') {
+    if (traces[0]) traces[0].hovertemplate = '%{x}<br>Daily Rainfall: %{y:.2f} mm<extra></extra>';
+  } else if (ct === 'rainfall-intensity') {
+    if (traces[0]) traces[0].hovertemplate = 'Rate: %{x} mm/h<br>Count: %{y}<extra></extra>';
+  } else if (ct === 'diurnal-rainfall') {
+    if (traces[0]) traces[0].hovertemplate = '%{x}:00 EAT<br>Mean Rainfall: %{y:.3f} mm<extra></extra>';
+    if (traces[1]) traces[1].hovertemplate = '%{x}:00 EAT<br>Rain Frequency: %{y:.1f}%<extra></extra>';
+  } else if (ct === 'dry-spells') {
+    if (traces[0]) traces[0].hovertemplate = 'Duration: %{y}<br>Count: %{x}<extra></extra>';
+  } else if (ct === 'driving-rain') {
+    if (traces[0]) traces[0].hovertemplate = 'Direction: %{theta}<br>DRI: %{r:.2f}<extra></extra>';
+  } else if (ct === 'wind-rain') {
+    if (traces[0]) traces[0].hovertemplate = 'Wind: %{x} km/h<br>Rain rate: %{y} mm/h<br>Count: %{z}<extra></extra>';
+  } else if (ct === 'solar-wind') {
+    if (_needsConv && traces[0] && traces[0].y) traces[0].y = traces[0].y.map(_cvt);
+    if (layout.yaxis) layout.yaxis.title = 'Wind Speed (' + wLabel() + ')';
+    if (traces[0]) {
+      const _htHour = traces[0].customdata ? '<br>Hour: %{customdata}:00 EAT' : '';
+      traces[0].hovertemplate = 'Solar: %{x:.1f} W/m²<br>Wind: %{y:.1f} ' + wLabel() + _htHour + '<extra></extra>';
+    }
+  } else if (ct === 'ventilation-windows') {
+    if (traces[0] && traces[0].z) {
+      const _condLabels = ['No Data', 'Effective', 'Marginal', 'Closed'];
+      traces[0].text = traces[0].z.map(row => row.map(v => _condLabels[v] || ''));
+      traces[0].hovertemplate = 'Hour: %{x}:00 EAT<br>Date: %{y}<br>Condition: %{text}<extra></extra>';
+    }
   } else if (ct === 'pre-storm') {
     if (_needsConv && traces[0] && traces[0].y) traces[0].y = traces[0].y.map(_cvt);
     if (traces[0]) traces[0].name = 'Wind Speed (' + wLabel() + ')';
     if (layout.yaxis) layout.yaxis.title = 'Wind Speed (' + wLabel() + ')';
+    if (traces[0]) traces[0].hovertemplate = 'Hours from rain start: %{x:.2f}<br>Wind: %{y:.1f} ' + wLabel() + '<extra></extra>';
+    if (traces[1]) traces[1].hovertemplate = 'Hours from rain start: %{x:.2f}<br>Solar: %{y:.1f} W/m²<extra></extra>';
   }
 
   Plotly.react(chartEl, traces, layout, config);

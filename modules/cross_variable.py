@@ -278,6 +278,7 @@ def _build_solar_wind_correlation(xdf):
         "name": "Readings",
         "x": [round(v, 1) for v in daytime["solar_wm2"]],
         "y": [round(v, 1) for v in daytime["avg_wind_kph"]],
+        "customdata": daytime["hour"].tolist(),
         "marker": {
             "color": daytime["hour"].tolist(),
             "colorscale": "Viridis",
