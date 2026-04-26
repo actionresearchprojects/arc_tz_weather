@@ -531,7 +531,7 @@ def _build_calm_periods(wdf):
 
 def _build_ventilation_availability(wdf):
     """Build ventilation availability stacked area chart."""
-    HIST_BIN_W = 0.25   # km/h bin width
+    HIST_BIN_W = 0.1    # km/h bin width
     HIST_MAX   = 80.0   # km/h upper bound
     N_BINS     = int(HIST_MAX / HIST_BIN_W)
     INTERVAL_H = 5 / 60

@@ -1360,7 +1360,7 @@ function setWindUnit(unit) {
 }
 
 // Ventilation threshold helpers -- histogram-based, supports any granularity
-const _VENT_HIST_BIN_W = 0.25; // km/h, must match Python HIST_BIN_W
+const _VENT_HIST_BIN_W = 0.1; // km/h, must match Python HIST_BIN_W
 
 function _computeVentDaily(hist, threshKph) {
   const IH = 5 / 60;
@@ -1385,9 +1385,9 @@ function _syncVentSlider() {
   if (!sl) return;
   const kph = state.ventThreshKph || 3.5;
   let min, max, step;
-  if (state.windUnit === 'ms')      { min = 0.1; max = 5;  step = 0.1; }
-  else if (state.windUnit === 'kn') { min = 0.2; max = 10; step = 0.2; }
-  else                               { min = 0.25; max = 15; step = 0.25; }
+  if (state.windUnit === 'ms')      { min = 0.05; max = 5;  step = 0.05; }
+  else if (state.windUnit === 'kn') { min = 0.05; max = 10; step = 0.05; }
+  else                               { min = 0.1;  max = 15; step = 0.05; }
   const val = Math.max(min, Math.min(max, Math.round(wToUnit(kph) / step) * step));
   sl.min = min; sl.max = max; sl.step = step; sl.value = val;
   _updateVentThreshLabel();
