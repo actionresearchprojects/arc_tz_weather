@@ -531,81 +531,61 @@ def _build_calm_periods(wdf):
 
 def _build_ventilation_availability(wdf):
     """Build ventilation availability stacked area chart."""
+    HIST_BIN_W = 0.25   # km/h bin width
+    HIST_MAX   = 80.0   # km/h upper bound
+    N_BINS     = int(HIST_MAX / HIST_BIN_W)
+    INTERVAL_H = 5 / 60
+    DEFAULT_THRESH = 3.5  # km/h
+
     wdf_c = wdf.copy()
     wdf_c["date"] = wdf_c["timestamp"].dt.date
 
-    # Default threshold: 3.5 km/h (~1 m/s)
-    # We'll compute for multiple thresholds and let JS select
-    thresholds = [1, 2, 3.5, 5, 7, 10]
-    threshold_data = {}
+    vent_hist = []
+    default_dates_ms, default_eff, default_marg, default_calm = [], [], [], []
 
-    for thresh in thresholds:
-        daily = []
-        for date, group in wdf_c.groupby("date"):
-            total = len(group)
-            effective = (group["avg_wind_kph"] >= thresh).sum()
-            marginal = ((group["avg_wind_kph"] > CALM_THRESHOLD_KPH) & (group["avg_wind_kph"] < thresh)).sum()
-            calm = (group["avg_wind_kph"] <= CALM_THRESHOLD_KPH).sum()
+    for date, group in wdf_c.groupby("date"):
+        valid = group["avg_wind_kph"].dropna().values
+        calm_count = int((valid <= CALM_THRESHOLD_KPH).sum())
 
-            # Convert to hours (assuming ~5-min intervals)
-            interval_h = 5 / 60
-            dt = pd.Timestamp(date).tz_localize(TIMEZONE)
-            daily.append({
-                "date_ms": int(dt.timestamp() * 1000),
-                "effective_h": round(effective * interval_h, 1),
-                "marginal_h": round(marginal * interval_h, 1),
-                "calm_h": round(calm * interval_h, 1),
-            })
-        threshold_data[str(thresh)] = daily
+        # Build 0.25 km/h histogram over all valid readings
+        indices = np.clip((valid / HIST_BIN_W).astype(int), 0, N_BINS - 1)
+        counts = np.bincount(indices, minlength=N_BINS)
+        # Trim trailing zeros to keep payload small
+        last = int(np.max(np.nonzero(counts))) if counts.any() else 0
+        bins = counts[:last + 1].tolist()
 
-    # Default threshold stats
-    default_thresh = 3.5
-    all_effective = (wdf_c["avg_wind_kph"] >= default_thresh).sum()
-    all_marginal = ((wdf_c["avg_wind_kph"] > CALM_THRESHOLD_KPH) & (wdf_c["avg_wind_kph"] < default_thresh)).sum()
-    all_calm = (wdf_c["avg_wind_kph"] <= CALM_THRESHOLD_KPH).sum()
-    total = len(wdf_c)
-    eff_pct = round(all_effective / total * 100, 1) if total else 0
+        dt = pd.Timestamp(date).tz_localize(TIMEZONE)
+        date_ms = int(dt.timestamp() * 1000)
+        vent_hist.append({"d": date_ms, "c": calm_count, "b": bins})
 
-    # Build default traces
-    default_data = threshold_data["3.5"]
-    dates_ms = [d["date_ms"] for d in default_data]
-    eff_hours = [d["effective_h"] for d in default_data]
-    marg_hours = [d["marginal_h"] for d in default_data]
-    calm_hours = [d["calm_h"] for d in default_data]
+        # Pre-compute default (3.5 km/h) traces for initial render
+        thresh_bin = math.ceil(DEFAULT_THRESH / HIST_BIN_W)
+        eff   = int(counts[thresh_bin:].sum())
+        lower = int(counts[:thresh_bin].sum())
+        marg  = max(0, lower - calm_count)
+        default_dates_ms.append(date_ms)
+        default_eff.append(round(eff * INTERVAL_H, 1))
+        default_marg.append(round(marg * INTERVAL_H, 1))
+        default_calm.append(round(calm_count * INTERVAL_H, 1))
 
     traces = [
         {
-            "type": "scatter",
-            "mode": "lines",
-            "name": "Effective",
-            "x_ms": dates_ms,
-            "y": eff_hours,
-            "fill": "tozeroy",
-            "fillcolor": "rgba(44,160,44,0.5)",
-            "line": {"color": VENTILATION_COLORS["effective"]},
-            "stackgroup": "vent",
+            "type": "scatter", "mode": "lines", "name": "Effective",
+            "x_ms": default_dates_ms, "y": default_eff,
+            "fill": "tozeroy", "fillcolor": "rgba(44,160,44,0.5)",
+            "line": {"color": VENTILATION_COLORS["effective"]}, "stackgroup": "vent",
         },
         {
-            "type": "scatter",
-            "mode": "lines",
-            "name": "Marginal",
-            "x_ms": dates_ms,
-            "y": marg_hours,
-            "fill": "tonexty",
-            "fillcolor": "rgba(255,191,0,0.5)",
-            "line": {"color": VENTILATION_COLORS["marginal"]},
-            "stackgroup": "vent",
+            "type": "scatter", "mode": "lines", "name": "Marginal",
+            "x_ms": default_dates_ms, "y": default_marg,
+            "fill": "tonexty", "fillcolor": "rgba(255,191,0,0.5)",
+            "line": {"color": VENTILATION_COLORS["marginal"]}, "stackgroup": "vent",
         },
         {
-            "type": "scatter",
-            "mode": "lines",
-            "name": "Calm (\u22640.1 m/s)",
-            "x_ms": dates_ms,
-            "y": calm_hours,
-            "fill": "tonexty",
-            "fillcolor": "rgba(214,39,40,0.3)",
-            "line": {"color": VENTILATION_COLORS["closed"]},
-            "stackgroup": "vent",
+            "type": "scatter", "mode": "lines", "name": "Calm (\u22640.1\u202fm/s)",
+            "x_ms": default_dates_ms, "y": default_calm,
+            "fill": "tonexty", "fillcolor": "rgba(214,39,40,0.3)",
+            "line": {"color": VENTILATION_COLORS["closed"]}, "stackgroup": "vent",
         },
     ]
 
@@ -622,9 +602,117 @@ def _build_ventilation_availability(wdf):
         "title_sw": "Upatikanaji wa Hewa",
         "data": traces,
         "layout": layout,
-        "thresholdData": threshold_data,
-        "effectivePct": eff_pct,
-        "defaultThreshold": default_thresh,
+        "ventHist": vent_hist,
+        "defaultThreshold": DEFAULT_THRESH,
+    }
+
+
+def fit_arc_wind_bands(speeds_kph, tail_pct=90, min_bands=2, max_bands=7):
+    """Derive equal-width wind speed bands with a data-driven tail cutoff.
+
+    Algorithm:
+      1. Fixed Calm band: 0 to CALM_THRESHOLD_KPH (0-0.1 m/s).
+      2. Tail threshold X = tail_pct-th percentile of non-calm readings.
+         Everything above X goes into a single open-ended tail band.
+      3. Grid search N in [min_bands, max_bands]: divide [calm_hi, X] into N
+         equal-width bands, score each partition by its minimum band count.
+      4. Choose N that maximises the minimum band count (most even coverage).
+
+    Returns {bands, meta} dict or None on failure.
+    """
+    all_speeds = np.asarray(
+        [v for v in speeds_kph if v is not None and np.isfinite(v) and v >= 0],
+        dtype=float,
+    )
+    if len(all_speeds) < 100:
+        return None
+
+    calm_hi = CALM_THRESHOLD_KPH
+    x = all_speeds[all_speeds > calm_hi]
+
+    if len(x) < max_bands * 10:
+        return None
+
+    # Step 1: tail threshold
+    tail_x = float(np.percentile(x, tail_pct))
+
+    # Step 2: grid search over N
+    # Objective: largest N where every band has >= min_threshold readings.
+    # This gives maximum granularity subject to statistical reliability.
+    min_threshold = max(100, int(len(x) * 0.10))
+    search_results = []
+    for n in range(min_bands, max_bands + 1):
+        if (tail_x - calm_hi) <= 0:
+            break
+        edges = np.linspace(calm_hi, tail_x, n + 1)
+        counts = [int(((x >= edges[i]) & (x < edges[i + 1])).sum()) for i in range(n)]
+        min_count = min(counts)
+        search_results.append({
+            "n": n,
+            "band_width_kph": round((tail_x - calm_hi) / n, 3),
+            "min_count": min_count,
+            "meets_threshold": min_count >= min_threshold,
+        })
+    # Pick the largest N that meets the threshold; fall back to min_bands
+    best_n = min_bands
+    best_score = search_results[0]["min_count"] if search_results else 0
+    for sr in reversed(search_results):
+        if sr["meets_threshold"]:
+            best_n = sr["n"]
+            best_score = sr["min_count"]
+            break
+
+    # Step 3: build bands
+    edges = np.linspace(calm_hi, tail_x, best_n + 1)
+    bands = [{"label": "Calm", "lo_kph": 0.0, "hi_kph": round(calm_hi, 2), "mean_kph": 0.0}]
+    for i in range(best_n):
+        lo, hi = round(float(edges[i]), 3), round(float(edges[i + 1]), 3)
+        in_band = x[(x >= lo) & (x < hi)]
+        bands.append({
+            "label": f"Band {i + 2}",  # JS replaces with speed-range label
+            "lo_kph": lo,
+            "hi_kph": hi,
+            "mean_kph": round(float(in_band.mean()), 2) if len(in_band) else round((lo + hi) / 2, 2),
+        })
+    tail_vals = x[x >= tail_x]
+    bands.append({
+        "label": "Tail",
+        "lo_kph": round(tail_x, 3),
+        "hi_kph": None,
+        "mean_kph": round(float(tail_vals.mean()), 2) if len(tail_vals) else round(tail_x, 2),
+    })
+
+    # Diagnostic histogram of non-calm speeds; bins start at calm_hi so
+    # the first bar center falls to the right of the calm boundary line.
+    BIN_W = 0.5  # km/h
+    x_max = float(x.max()) * 1.05
+    hist_edges = np.arange(calm_hi, x_max + BIN_W, BIN_W)
+    hist_counts, _ = np.histogram(x, bins=hist_edges)
+    hist_x = [round(float((hist_edges[i] + hist_edges[i + 1]) / 2), 2) for i in range(len(hist_counts))]
+    hist_y = hist_counts.tolist()
+
+    # Per-band counts across all speeds
+    band_counts = []
+    for b in bands:
+        lo = b["lo_kph"]
+        hi = b["hi_kph"] if b["hi_kph"] is not None else float("inf")
+        band_counts.append(int(((all_speeds >= lo) & (all_speeds < hi)).sum()))
+
+    return {
+        "bands": bands,
+        "meta": {
+            "tail_pct":        tail_pct,
+            "tail_x_kph":     round(tail_x, 3),
+            "n_bands":        best_n,
+            "band_width_kph": round((tail_x - calm_hi) / best_n, 3),
+            "min_threshold":  min_threshold,
+            "best_min_count": best_score,
+            "search_results": search_results,
+            "hist_x":         hist_x,
+            "hist_y":         hist_y,
+            "band_counts":    band_counts,
+            "n_total":        len(all_speeds),
+        },
     }
 
 

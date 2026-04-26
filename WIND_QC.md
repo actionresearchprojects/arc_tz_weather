@@ -46,7 +46,7 @@ reading > AVG_SPIKE_RATIO * local_median   AND   reading > AVG_SPIKE_MIN_KPH
 
 **Why not "avg < 1.0 km/h AND peak > 25 km/h":** An earlier description of the bounce filter used a hard avg threshold. The ratio approach is strictly superior: it catches bounce at any average speed level (e.g. avg = 3 km/h, peak = 40 km/h → ratio 13), and the minimum-peak guard already handles the near-calm false-positive case.
 
-**Action:** `peak_wind_kph` values satisfying the condition are replaced with NaN / None and marked in `peak_wind_flagged`. `avg_wind_kph` is not affected by this filter.
+**Action:** `peak_wind_kph` values satisfying the condition are replaced with NaN / None and marked in `peak_wind_flagged`. `avg_wind_kph` is not affected by this filter alone — see Filter 4.
 
 ---
 
@@ -60,13 +60,28 @@ reading > AVG_SPIKE_RATIO * local_median   AND   reading > AVG_SPIKE_MIN_KPH
 
 ---
 
+## Filter 4: Physical impossibility — avg > peak (both channels NaN'd)
+
+**What it catches:** Rows where the 5-minute average wind speed exceeds the 5-minute peak gust — a physical impossibility, since a period average cannot exceed its own maximum. This is a logging error, not a sensor spike: if the average is recorded as higher than the peak, neither value can be trusted.
+
+**Real example:** 2026-03-19 11:55 EAT — `avg_wind_kph = 15.5`, `peak_wind_kph = 7.6`. The ratio filter alone would only NaN the peak, leaving a clearly erroneous 15.5 km/h average in all downstream charts.
+
+**Why both channels are NaN'd:** When avg > peak, we cannot infer which channel is wrong. The average could be a logging artefact (value from a different interval written to the wrong row), or the peak could be a stall reading. Because the relationship between them is provably impossible, both values are unreliable and both are discarded.
+
+**This is distinct from Filter 2 (bounce):** Bounce produces `peak >> avg`. This filter catches the opposite: `avg > peak`. Both are sensor artefacts but arise from different mechanisms.
+
+**Action:** Both `avg_wind_kph` and `peak_wind_kph` are replaced with NaN / None. Both `avg_wind_flagged` and `peak_wind_flagged` are set True.
+
+---
+
 ## Application order
 
 Filters run in sequence so each step uses already-cleaned values:
 
 1. **avg spike filter** (cleans `avg_wind_kph` first)
-2. **bounce ratio on peak** (uses the cleaned `avg_wind_kph` as denominator — important, since a flagged avg becomes NaN/None and is treated as infinite ratio)
+2. **bounce ratio on peak** (uses the cleaned `avg_wind_kph` as denominator — important, since a flagged avg becomes NaN and is treated as infinite ratio)
 3. **peak ceiling** (independent, applied alongside step 2)
+4. **physical impossibility** (avg > peak — NaN's both channels; runs after steps 1-3 so it operates on already-cleaned values and catches residual logging errors not caught by earlier filters)
 
 ---
 
@@ -76,9 +91,11 @@ Filters run in sequence so each step uses already-cleaned values:
 AVG_SPIKE_RATIO    = 3.0   # flag avg if > 3x local rolling median
 AVG_SPIKE_WINDOW   = 12    # readings in rolling window (~1 hour at 5-min intervals)
 AVG_SPIKE_MIN_KPH  = 20    # minimum speed for ratio test to engage
+AVG_WIND_CEIL_KPH  = 60    # km/h: hard ceiling for avg wind (safety net for spike filter)
 PEAK_WIND_CEIL_KPH = 100   # km/h: hard ceiling for peak gust
 BOUNCE_RATIO       = 8     # peak/avg ratio threshold for reed switch bounce
 BOUNCE_MIN_PEAK_KPH = 25   # km/h: minimum peak speed for ratio filter to engage
+# Filter 4 uses no additional constant: condition is simply avg_wind_kph > peak_wind_kph
 ```
 
 Any change to these values must be mirrored in `arc_tz_line/build.py` (inline in `load_weather_station_csv`).

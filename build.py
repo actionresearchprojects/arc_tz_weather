@@ -342,14 +342,24 @@ def build_dashboard(csv_path=None):
     df_r = df.copy()
     df_r = wind_qc(df_r)
     precip_incr = detect_precip_resets(df_r["precip_total_mm"]).diff().clip(lower=0).fillna(0)
+    _arc_result   = wind.fit_arc_wind_bands(df_r["avg_wind_kph"].dropna().values)
+    arc_wind_bands = _arc_result["bands"] if _arc_result else None
+    arc_gmm_meta   = _arc_result["meta"]   if _arc_result else None
+    _arc_gust_result  = wind.fit_arc_wind_bands(df_r["peak_wind_kph"].dropna().values)
+    arc_bands_gust = _arc_gust_result["bands"] if _arc_gust_result else None
+    arc_meta_gust  = _arc_gust_result["meta"]  if _arc_gust_result else None
     raw_data = {
-        "ts":         [to_eat_ms(t) for t in df_r["timestamp"]],
-        "avgWind":    [round(float(v), 1) if pd.notna(v) else None for v in df_r["avg_wind_kph"]],
-        "peakWind":   [round(float(v), 1) if pd.notna(v) else None for v in df_r["peak_wind_kph"]],
-        "windDir":    [int(v) if pd.notna(v) else None for v in df_r["wind_dir"]],
-        "solar":      [round(float(v), 1) if pd.notna(v) else None for v in df_r["solar_wm2"]],
-        "precipRate": [round(float(v), 3) if pd.notna(v) else None for v in df_r["precip_rate_mmh"]],
-        "precipIncr": [round(float(v), 3) if pd.notna(v) else None for v in precip_incr],
+        "ts":           [to_eat_ms(t) for t in df_r["timestamp"]],
+        "avgWind":      [round(float(v), 1) if pd.notna(v) else None for v in df_r["avg_wind_kph"]],
+        "peakWind":     [round(float(v), 1) if pd.notna(v) else None for v in df_r["peak_wind_kph"]],
+        "windDir":      [int(v) if pd.notna(v) else None for v in df_r["wind_dir"]],
+        "solar":        [round(float(v), 1) if pd.notna(v) else None for v in df_r["solar_wm2"]],
+        "precipRate":   [round(float(v), 3) if pd.notna(v) else None for v in df_r["precip_rate_mmh"]],
+        "precipIncr":   [round(float(v), 3) if pd.notna(v) else None for v in precip_incr],
+        "arcBands":     arc_wind_bands,
+        "arcMeta":      arc_gmm_meta,
+        "arcBandsGust": arc_bands_gust,
+        "arcMetaGust":  arc_meta_gust,
     }
 
     print("Computing hourly DRI (ISO 15927-3)...")
@@ -606,6 +616,15 @@ optgroup{font-weight:600;font-style:normal}
       </div>
     </div>
 
+    <!-- Ventilation threshold selector (shown for ventilation-availability) -->
+    <div id="vent-thresh-wrap" style="display:none">
+      <div class="wind-unit-notch" style="margin-bottom:6px">
+        <button id="vtu-kmh" class="wind-unit-btn active" onclick="setWindUnit('kmh')">km/h</button><button id="vtu-ms" class="wind-unit-btn" onclick="setWindUnit('ms')">m/s</button><button id="vtu-kn" class="wind-unit-btn" onclick="setWindUnit('kn')">kn</button>
+      </div>
+      <div style="font-size:10px;color:#666;margin-bottom:3px">Threshold: <span id="vent-thresh-label" style="color:#333;font-weight:600">3.5 km/h</span></div>
+      <input type="range" id="vent-thresh-slider" min="0" max="5" step="any" value="2" oninput="onVentThreshDrag(this.value)" onchange="onVentThreshSlide(this.value)" style="width:100%;margin:0;cursor:pointer">
+    </div>
+
     <!-- Wind series checkboxes (shown for wind-timeseries and wind-category-dist) -->
     <div id="wind-series-controls" style="display:none">
       <div class="section">
@@ -623,8 +642,9 @@ optgroup{font-weight:600;font-style:normal}
         <div class="section-title">Wind Categories</div>
         <label class="cb-label" style="margin-bottom:6px;">Classification
           <select id="wind-cat-system" onchange="setWindCatSystem(this.value)" style="margin-left:6px">
-            <option value="beaufort">Beaufort (WMO)</option>
-            <option value="lawson" selected>Lawson 2001</option>
+            <option value="arc">ARC-calibrated</option>
+            <option value="beaufort" selected>Beaufort (WMO)</option>
+            <option value="lawson">Lawson 2001</option>
             <option value="davenport">Davenport 1975</option>
             <option value="custom">Custom</option>
           </select>
@@ -649,6 +669,10 @@ optgroup{font-weight:600;font-style:normal}
           <hr class="divider" style="margin-bottom:6px">
           <div id="wind-cat-custom-toggle" onclick="toggleCustomEditor()"><span id="wind-cat-custom-arrow">&#9658;</span> Custom Thresholds</div>
           <div id="wind-cat-custom-editor" style="display:none;margin-top:6px"><div id="wind-cat-bands-list"></div><div style="display:flex;gap:4px;margin-top:4px"><button onclick="addCustomBand()" style="font-size:10px;padding:1px 6px;border:1px solid #ccc;border-radius:3px;cursor:pointer">+ Add band</button><button onclick="applyCustomBands()" style="font-size:10px;padding:1px 6px;border:1px solid #ccc;border-radius:3px;cursor:pointer;background:#e8f0ff">Apply</button></div></div>
+        </div>
+        <div id="arc-diag-section" style="display:none;margin-top:4px">
+          <hr class="divider" style="margin-bottom:6px">
+          <label class="cb-label"><input type="checkbox" id="arc-diag-cb" onchange="setArcDiagMode(this.checked)" style="margin-right:4px"> Show calibration</label>
         </div>
       </div>
     </div>
@@ -773,7 +797,9 @@ const state = {
   driResample: '5min',      // '5min' | '1h' (driving rain resampling)
   solarDistBinSize: 50,     // bin width in W/m² for solar distribution histogram
   windUnit: 'kmh',  // 'ms' = m/s, 'kmh' = km/h (default)
-  windCatSystem: 'lawson',     // classification system for wind-category-dist
+  ventThreshKph: 3.5, // ventilation availability threshold in km/h
+  windCatSystem: 'beaufort',   // classification system for wind-category-dist
+  arcDiagMode: false,          // show calibration view instead of bar chart
   windCatValueUnit: 'pct',     // count by: pct|hours|days|weeks|months
   windCatPerUnit: 'day',       // cycle: day|week|month|year
   windCatCustomBands: null,    // user-defined bands; null = use Lawson defaults
@@ -846,8 +872,8 @@ const I18N = {
     infoWindDist: 'Distribution of 5-minute average wind speeds. The dashed red line shows a Weibull probability distribution fit, commonly used in wind analysis. The Weibull shape (k) and scale (c) parameters characterise the site wind regime.',
     infoGustFactor: 'Each 5-minute reading plotted as gust factor (peak/avg) vs. average speed. Colour represents hour of day. The dashed red line at 2.0 marks the typical threshold for turbulent conditions. High gust factors at low speeds indicate gusty, turbulent conditions.',
     infoCalmPeriods: 'Distribution of consecutive calm period durations (wind \u22640.1 m/s). Extended calm periods mean the building relies on stack effect alone for ventilation. This directly informs whether mechanical backup ventilation is needed.',
-    infoVentAvail: 'For each day, shows hours in three categories: above ventilation threshold (effective wind), below threshold but non-zero (marginal), and calm. The threshold is adjustable. Directly answers "what fraction of the time is natural ventilation effective?"',
-    infoWindCatDist: 'Horizontal bar chart showing how often wind falls into each speed category. Switch between Beaufort, Lawson 2001, Davenport, or custom thresholds. Count by percentage or a time unit (e.g. hours per day). Hover bars for speed ranges and counts.',
+    infoVentAvail: 'For each day, shows hours in three categories: above ventilation threshold (effective), below threshold but non-zero (marginal), and calm (below 0.1 m/s). Use the threshold slider to change the effective wind cutoff. Directly answers "what fraction of the time is natural ventilation effective?"',
+        infoWindCatDist: 'Horizontal bar chart showing how often wind falls into each speed category. Switch between ARC-calibrated, Beaufort (WMO), Lawson 2001, Davenport 1975, or custom thresholds. Count by percentage or a time unit (e.g. hours per day). Hover bars for speed ranges and counts. ARC-calibrated uses a data-driven algorithm: it finds the P90 of non-calm readings as a tail threshold X, puts all speeds above X into a single open-ended tail band, then grid-searches N (2-7) equal-width bands between calm and X, picking the N that maximises the minimum band count (most even coverage). Enable "Show calibration" to see the speed distribution histogram with band boundaries and tail threshold overlaid.',
     infoSolarTS: 'Continuous time series of global horizontal irradiance (W/m2). Shows solar intensity patterns, cloudy vs. clear days, and seasonal trends. Directly related to solar heat gain through windows and roofing.',
     infoDailyInsol: 'Daily solar insolation (kWh/m2/day) calculated by integrating 5-minute radiation readings. The dashed red line shows the typical clear-sky reference for this latitude (~5.5 kWh/m2/day). Days below this line indicate significant cloud cover.',
     infoDiurnalSolar: 'Mean solar radiation by hour, with standard deviation shading. The shape of the diurnal curve (and deviation from clear-sky) characterises the site solar regime. Asymmetry (morning vs. afternoon) affects orientation-dependent heat gain.',
@@ -1095,10 +1121,16 @@ function updateSidebarControls() {
   // Show/hide wind unit toggle (all wind-group charts + cross charts with wind speed axes)
   const isWindRelated = ct === 'wind-rose' || ct === 'wind-timeseries' || ct === 'avg-wind-profiles' ||
     ct === 'wind-distribution' || ct === 'gust-factor' || ct === 'calm-periods' ||
-    ct === 'ventilation-availability' || ct === 'wind-rain' || ct === 'solar-wind' ||
+    ct === 'wind-rain' || ct === 'solar-wind' ||
     ct === 'pre-storm' || ct === 'driving-rain' || ct === 'ventilation-windows' ||
     ct === 'wind-category-dist';
   document.getElementById('wind-unit-wrap').style.display = isWindRelated ? 'block' : 'none';
+  const isVentAvail = ct === 'ventilation-availability';
+  document.getElementById('vent-thresh-wrap').style.display = isVentAvail ? 'block' : 'none';
+  if (isVentAvail) {
+    ['kmh','ms','kn'].forEach(u => { const b = document.getElementById('vtu-'+u); if (b) b.classList.toggle('active', u === state.windUnit); });
+    _syncVentSlider();
+  }
   // Show/hide wind rose slider toggle
   const isWindRose = ct === 'wind-rose';
   document.getElementById('wr-slider-wrap').style.display = isWindRose ? 'block' : 'none';
@@ -1187,13 +1219,32 @@ function updateStatsPanel() {
       html += statsRow('Mean calm', formatDuration(chart.meanCalmMin));
       html += statsRow('Calms/day', chart.calmsPerDay);
     }
-    if (ct === 'ventilation-availability' && chart) {
-      html += statsRow('Effective %', chart.effectivePct + '%');
+    if (ct === 'ventilation-availability' && chart && chart.ventHist) {
+      const _vtKph = state.ventThreshKph || 3.5;
+      const {start: _vtS, end: _vtE} = getTimeRange();
+      const _vtDaily = _computeVentDaily(chart.ventHist, _vtKph).filter(d => d.date_ms >= _vtS && d.date_ms <= _vtE);
+      const _vtTot = _vtDaily.reduce((s, d) => s + d.effective_h + d.marginal_h + d.calm_h, 0);
+      const _vtEff = _vtDaily.reduce((s, d) => s + d.effective_h, 0);
+      const _vtEffPct = _vtTot > 0 ? Math.round(_vtEff / _vtTot * 1000) / 10 : 0;
+      html += statsRow('Threshold', (Math.round(wToUnit(_vtKph) * 100) / 100) + ' ' + wLabel());
+      html += statsRow('Effective %', _vtEffPct + '%');
     }
     if (ct === 'wind-category-dist') {
-      const sysNames = {beaufort:'Beaufort (WMO/1805)', lawson:'Lawson 2001', davenport:'Davenport 1975', custom:'Custom'};
+      const sysNames = {arc:'ARC-calibrated', beaufort:'Beaufort (WMO/1805)', lawson:'Lawson 2001', davenport:'Davenport 1975', custom:'Custom'};
       html += statsRow('Classification', sysNames[state.windCatSystem||'beaufort']||'');
       if (_computedChart && _computedChart.total) html += statsRow('Readings', _computedChart.total);
+      if (state.windCatSystem === 'arc') {
+        const showAvgS = document.getElementById('cb-wind-avg').checked;
+        const showGustS = document.getElementById('cb-wind-gust').checked;
+        const useGustMeta = showGustS && !showAvgS;
+        const meta = useGustMeta ? ((ALL_DATA.raw||{}).arcMetaGust||(ALL_DATA.raw||{}).arcMeta) : (ALL_DATA.raw||{}).arcMeta;
+        if (meta) {
+          html += statsRow('Equal bands', meta.n_bands);
+          html += statsRow('Band width', Math.round(wToUnit(meta.band_width_kph)*100)/100 + ' ' + wLabel());
+          html += statsRow('Tail threshold', 'P' + meta.tail_pct + ' = ' + Math.round(wToUnit(meta.tail_x_kph)*100)/100 + ' ' + wLabel());
+          html += statsRow('Min band count', meta.best_min_count);
+        }
+      }
     }
   } else if (ct.startsWith('solar') || ct === 'daily-insolation' || ct === 'diurnal-solar' || ct === 'avg-solar-profiles' || ct === 'clearness-index' || ct === 'peak-solar-hours') {
     html += statsRow('Mean daytime W/m\u00b2', ss.meanDaytimeIrradiance);
@@ -1300,8 +1351,77 @@ function setDriResample(r) {
 
 function setWindUnit(unit) {
   state.windUnit = unit;
-  ['kmh', 'ms', 'kn'].forEach(u => document.getElementById('wu-' + u).classList.toggle('active', u === unit));
+  ['kmh', 'ms', 'kn'].forEach(u => {
+    const b = document.getElementById('wu-' + u); if (b) b.classList.toggle('active', u === unit);
+    const bv = document.getElementById('vtu-' + u); if (bv) bv.classList.toggle('active', u === unit);
+  });
+  _syncVentSlider();
   updatePlot();
+}
+
+// Ventilation threshold helpers -- histogram-based, supports any granularity
+const _VENT_HIST_BIN_W = 0.25; // km/h, must match Python HIST_BIN_W
+
+function _computeVentDaily(hist, threshKph) {
+  const IH = 5 / 60;
+  const threshBin = Math.ceil(threshKph / _VENT_HIST_BIN_W);
+  return hist.map(day => {
+    const bins = day.b;
+    let lower = 0, upper = 0;
+    for (let i = 0; i < bins.length; i++) {
+      if (i < threshBin) lower += bins[i]; else upper += bins[i];
+    }
+    return {
+      date_ms:     day.d,
+      effective_h: Math.round(upper * IH * 10) / 10,
+      marginal_h:  Math.round(Math.max(0, lower - day.c) * IH * 10) / 10,
+      calm_h:      Math.round(day.c * IH * 10) / 10,
+    };
+  });
+}
+
+function _syncVentSlider() {
+  const sl = document.getElementById('vent-thresh-slider');
+  if (!sl) return;
+  const kph = state.ventThreshKph || 3.5;
+  let min, max, step;
+  if (state.windUnit === 'ms')      { min = 0.25; max = 5;  step = 0.25; }
+  else if (state.windUnit === 'kn') { min = 0.5;  max = 10; step = 0.5;  }
+  else                               { min = 0.25; max = 15; step = 0.25; }
+  const val = Math.max(min, Math.min(max, Math.round(wToUnit(kph) / step) * step));
+  sl.min = min; sl.max = max; sl.step = step; sl.value = val;
+  _updateVentThreshLabel();
+}
+
+function _updateVentThreshLabel() {
+  const kph = state.ventThreshKph || 3.5;
+  const el = document.getElementById('vent-thresh-label');
+  if (el) el.textContent = (Math.round(wToUnit(kph) * 100) / 100) + ' ' + wLabel();
+}
+
+function onVentThreshDrag(rawVal) {
+  const v = parseFloat(rawVal);
+  if (state.windUnit === 'ms')      state.ventThreshKph = v / _KPH_TO_MS;
+  else if (state.windUnit === 'kn') state.ventThreshKph = v / _KPH_TO_KN;
+  else                               state.ventThreshKph = v;
+  _updateVentThreshLabel();
+}
+
+function onVentThreshSlide(rawVal) {
+  onVentThreshDrag(rawVal);
+  updatePlot();
+}
+
+function _buildVentTraces(daily) {
+  const xms = daily.map(d => d.date_ms);
+  return [
+    {type:'scatter',mode:'lines',name:'Effective',x_ms:xms,y:daily.map(d=>d.effective_h),
+     fill:'tozeroy',fillcolor:'rgba(44,160,44,0.5)',line:{color:'#2ca02c'},stackgroup:'vent'},
+    {type:'scatter',mode:'lines',name:'Marginal',x_ms:xms,y:daily.map(d=>d.marginal_h),
+     fill:'tonexty',fillcolor:'rgba(255,191,0,0.5)',line:{color:'#ffbf00'},stackgroup:'vent'},
+    {type:'scatter',mode:'lines',name:'Calm (≤0.1 m/s)',x_ms:xms,y:daily.map(d=>d.calm_h),
+     fill:'tonexty',fillcolor:'rgba(214,39,40,0.3)',line:{color:'#d62728'},stackgroup:'vent'},
+  ];
 }
 function _customUnitToKph(val, unit) {
   if (unit === 'ms') return val * 3.6;
@@ -1814,7 +1934,7 @@ function _buildSolarWind(raw) {
   raw.ts.forEach((_,i)=>{ if(raw.solar[i]==null||raw.solar[i]<=0||raw.avgWind[i]==null) return;
     pts.push({x:raw.solar[i],y:raw.avgWind[i],h:eatDate(raw.ts[i]).getUTCHours()}); });
   if(!pts.length) return null;
-  const s=pts.length>5000?pts.filter((_,i)=>i%Math.ceil(pts.length/5000)===0):pts;
+  const s=pts;
   const n=s.length,xs=s.map(p=>p.x),ys=s.map(p=>p.y);
   const mx=xs.reduce((a,b)=>a+b,0)/n,my=ys.reduce((a,b)=>a+b,0)/n;
   const num=xs.reduce((v,x,i)=>v+(x-mx)*(ys[i]-my),0);
@@ -1881,9 +2001,84 @@ function _getDenomLabel() {
 }
 function _isPercentMode() { return (state.windCatValueUnit||'pct') === 'pct'; }
 
+function _buildArcDiag() {
+  const showAvg = document.getElementById('cb-wind-avg').checked;
+  const showGust = document.getElementById('cb-wind-gust').checked;
+  const useGust = showGust && !showAvg;
+  const meta = useGust ? ((ALL_DATA.raw||{}).arcMetaGust||(ALL_DATA.raw||{}).arcMeta) : (ALL_DATA.raw||{}).arcMeta;
+  const arcBands = useGust ? ((ALL_DATA.raw||{}).arcBandsGust||(ALL_DATA.raw||{}).arcBands) : (ALL_DATA.raw||{}).arcBands;
+  if (!meta || !arcBands) return null;
+
+  const toU = v => Math.round(wToUnit(v) * 1000) / 1000;
+  const hx = meta.hist_x.map(toU);
+  const calmHi = toU(arcBands[0].hi_kph);
+  const tailX = toU(meta.tail_x_kph);
+  const ymax = Math.max(...meta.hist_y) * 1.15;
+  const bw = Math.round(wToUnit(meta.band_width_kph) * 100) / 100;
+  const barW = meta.hist_x.length > 1 ? Math.round(wToUnit(meta.hist_x[1]-meta.hist_x[0])*10000)/10000 : Math.round(wToUnit(0.5)*10000)/10000;
+
+  const traces = [];
+
+  // Calm shading
+  traces.push({type:'scatter', mode:'lines', x:[0,calmHi,calmHi,0,0], y:[0,0,ymax,ymax,0],
+    fill:'toself', fillcolor:'rgba(180,180,180,0.2)', line:{width:0},
+    name:'Calm (0–0.1 m/s)', hoverinfo:'skip', showlegend:true});
+
+  // Calm boundary line
+  traces.push({type:'scatter', mode:'lines', x:[calmHi,calmHi], y:[0,ymax],
+    name:'Calm boundary (0.1 m/s)', line:{color:'rgba(80,80,80,0.7)', width:1.5, dash:'dot'},
+    showlegend:true, hoverinfo:'skip'});
+
+  // Histogram of non-calm speeds
+  traces.push({type:'bar', x:hx, y:meta.hist_y, name:'Speed distribution',
+    marker:{color:'#aac4e0'}, opacity:0.7, showlegend:true, width:barW});
+
+  // Equal-width band boundaries (blue dashes, within dense region)
+  arcBands.slice(1, -1).forEach((b, i) => {
+    if (b.hi_kph == null) return;
+    const bx = toU(b.hi_kph);
+    traces.push({type:'scatter', mode:'lines', x:[bx,bx], y:[0,ymax],
+      line:{color:'rgba(50,100,200,0.55)', width:1.5, dash:'dash'},
+      showlegend:false, hoverinfo:'skip'});
+  });
+
+  // Tail threshold (bold red dash)
+  traces.push({type:'scatter', mode:'lines', x:[tailX,tailX], y:[0,ymax],
+    name:`Tail threshold (P${meta.tail_pct} = ${Math.round(tailX*100)/100} ${wLabel()})`,
+    line:{color:'rgba(200,50,50,0.8)', width:2.5, dash:'dash'}, showlegend:true});
+
+  const annotText = `<b>${meta.n_bands} equal bands</b><br>`
+    + `Width: ${bw} ${wLabel()}<br>`
+    + `Tail: P${meta.tail_pct} = ${Math.round(tailX*100)/100} ${wLabel()}<br>`
+    + `Min band count: ${meta.best_min_count}`;
+
+  return {
+    data: traces,
+    layout: {
+      xaxis:{title:`Wind Speed (${wLabel()})`, rangemode:'nonnegative'},
+      yaxis:{title:'Count', rangemode:'nonnegative'},
+      showlegend:true, bargap:0,
+      annotations:[{
+        xref:'paper', yref:'paper', x:0.98, y:0.98, xanchor:'right', yanchor:'top',
+        text:annotText, showarrow:false,
+        bgcolor:'rgba(255,255,255,0.85)', bordercolor:'#ccc', borderwidth:1, font:{size:11},
+      }],
+    },
+  };
+}
+
 function _buildWindCategoryDist(raw) {
   const KN_TO_KPH = 463/250, MS_TO_KPH = 3.6;
   const sys = state.windCatSystem || 'beaufort';
+  // Defined early so arc band label construction can use it
+  function fmtKph(kph) { const v=wToUnit(kph); return v>0&&v<1 ? Math.round(v*100)/100 : Math.round(v*10)/10; }
+  const showAvg = document.getElementById('cb-wind-avg').checked;
+  const showGust = document.getElementById('cb-wind-gust').checked;
+  const useGust = showGust && !showAvg;
+
+  // Diagnostic mode: show distribution histogram with band boundaries overlaid
+  if (state.arcDiagMode && sys === 'arc') return _buildArcDiag();
+
   let bands = [];
 
   if (sys === 'beaufort') {
@@ -1908,6 +2103,15 @@ function _buildWindCategoryDist(raw) {
       {label:'Uncomfortable',lo:9.8,hi:Infinity},
     ];
     bands = DAV.map(b => ({label:b.label, lo_kph:b.lo*MS_TO_KPH, hi_kph:b.hi*MS_TO_KPH}));
+  } else if (sys === 'arc') {
+    const arcBands = useGust ? ((ALL_DATA.raw||{}).arcBandsGust||(ALL_DATA.raw||{}).arcBands) : (ALL_DATA.raw||{}).arcBands;
+    if (!arcBands || !arcBands.length) return null;
+    bands = arcBands.map((b, i) => {
+      const lo = b.lo_kph, hi = b.hi_kph == null ? Infinity : b.hi_kph;
+      const lbl = i === 0 ? 'Calm'
+        : (hi === Infinity ? fmtKph(lo)+'+ '+wLabel() : fmtKph(lo)+'–'+fmtKph(hi)+' '+wLabel());
+      return {label: lbl, lo_kph: lo, hi_kph: hi};
+    });
   } else {
     const cb = state.windCatCustomBands || _DEFAULT_CUSTOM_BANDS;
     const cUnit = state.windCatCustomUnit || 'ms';
@@ -1921,7 +2125,6 @@ function _buildWindCategoryDist(raw) {
   if (!bands.length) return null;
 
   const isPct = _isPercentMode(), xTitle = _getDenomLabel();
-  function fmtKph(kph) { return Math.round(wToUnit(kph)*10)/10; }
   function fmtRange(b) {
     if (b.hi_kph===Infinity) return fmtKph(b.lo_kph)+'+\u202f'+wLabel();
     return fmtKph(b.lo_kph)+'\u2013'+fmtKph(b.hi_kph)+'\u202f'+wLabel();
@@ -1955,8 +2158,6 @@ function _buildWindCategoryDist(raw) {
     return parts.length ? parts.join(', ') : '0 min';
   }
 
-  const showAvg = document.getElementById('cb-wind-avg').checked;
-  const showGust = document.getElementById('cb-wind-gust').checked;
   const series = [];
   if (showAvg) series.push({arr: raw.avgWind, name: 'Average', color: '#1f77b4'});
   if (showGust) series.push({arr: raw.peakWind, name: 'Peak Gust', color: '#ff7f0e'});
@@ -2025,9 +2226,19 @@ function setWindCatSystem(sys) {
   const sel = document.getElementById('wind-cat-system');
   if (sel) sel.value = sys;
   document.getElementById('wind-cat-custom-section').style.display = sys==='custom' ? '' : 'none';
+  document.getElementById('arc-diag-section').style.display = sys==='arc' ? '' : 'none';
   if (sys==='custom' && !state.windCatCustomBands) {
     state.windCatCustomBands = _DEFAULT_CUSTOM_BANDS.map(b => Object.assign({},b));
   }
+  if (sys !== 'arc') {
+    state.arcDiagMode = false;
+    const cb = document.getElementById('arc-diag-cb');
+    if (cb) cb.checked = false;
+  }
+  updatePlot();
+}
+function setArcDiagMode(on) {
+  state.arcDiagMode = on;
   updatePlot();
 }
 
@@ -2245,7 +2456,10 @@ function updatePlot() {
 
   // Build Plotly traces
   const traces = [];
-  const chartData = chart.data || [];
+  let chartData = chart.data || [];
+  if (ct === 'ventilation-availability' && chart.ventHist) {
+    chartData = _buildVentTraces(_computeVentDaily(chart.ventHist, state.ventThreshKph || 3.5));
+  }
   const {start: rngStart, end: rngEnd} = getTimeRange();
 
   for (const trace of chartData) {

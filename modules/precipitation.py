@@ -8,13 +8,13 @@ import numpy as np
 
 from .common import (
     RAIN_INTENSITY_COLORS, RAIN_DAILY_COLORS, TIMEZONE,
-    detect_precip_resets, to_eat_ms, get_season_boundaries, compass_bin,
+    detect_precip_resets, to_eat_ms, get_season_boundaries, compass_bin, wind_qc,
 )
 
 
 def process(df):
     """Process precipitation data and return chart configs, stats."""
-    pdf = df.copy()
+    pdf = wind_qc(df.copy())
 
     # Correct cumulative precipitation resets
     pdf["precip_corrected"] = detect_precip_resets(pdf["precip_total_mm"])
@@ -248,16 +248,6 @@ def _build_intensity_distribution(pdf):
 
     bin_edges = [0, 2, 5, 10, 20, 50, 100, 200]
     bin_labels = ["0-2", "2-5", "5-10", "10-20", "20-50", "50-100", "100+"]
-    bin_colors = [
-        RAIN_INTENSITY_COLORS["light"],
-        RAIN_INTENSITY_COLORS["light"],
-        RAIN_INTENSITY_COLORS["moderate"],
-        RAIN_INTENSITY_COLORS["moderate"],
-        RAIN_INTENSITY_COLORS["heavy"],
-        RAIN_INTENSITY_COLORS["heavy"],
-        RAIN_INTENSITY_COLORS["very_heavy"],
-    ]
-
     counts = []
     for i in range(len(bin_labels)):
         if i < len(bin_labels) - 1:
@@ -271,7 +261,7 @@ def _build_intensity_distribution(pdf):
         "name": "Frequency",
         "x": bin_labels,
         "y": counts,
-        "marker": {"color": bin_colors},
+        "marker": {"color": "#4575b4"},
     }]
 
     layout = {

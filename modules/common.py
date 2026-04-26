@@ -371,6 +371,10 @@ def wind_qc(df):
 
     df["peak_wind_flagged"] = peak_flagged
     df.loc[peak_flagged, "peak_wind_kph"] = np.nan
+
+    # When avg > peak the avg is also proven erroneous; flag and NaN both.
+    df.loc[impossible_mask, "avg_wind_flagged"] = True
+    df.loc[impossible_mask, "avg_wind_kph"] = np.nan
     return df
 
 

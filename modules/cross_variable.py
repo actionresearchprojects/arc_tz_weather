@@ -11,7 +11,7 @@ import numpy as np
 
 from .common import (
     VENTILATION_COLORS, CALM_THRESHOLD_KPH, to_eat_ms, compass_bin,
-    get_season_boundaries,
+    get_season_boundaries, wind_qc,
 )
 
 
@@ -52,7 +52,7 @@ def build_driving_rain_hourly(df, precip_incr):
 
 def process(df, rain_events=None):
     """Process cross-variable analyses and return chart configs, stats."""
-    xdf = df.copy()
+    xdf = wind_qc(df.copy())
 
     charts = []
 
@@ -267,10 +267,6 @@ def _build_solar_wind_correlation(xdf):
                 "title_sw": "Uhusiano wa Jua na Upepo", "data": [], "layout": {}}
 
     daytime["hour"] = daytime["timestamp"].dt.hour
-
-    # Subsample if too many points
-    if len(daytime) > 5000:
-        daytime = daytime.sample(5000, random_state=42)
 
     traces = [{
         "type": "scatter",

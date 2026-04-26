@@ -9,7 +9,7 @@ import pandas as pd
 import numpy as np
 
 from .common import (
-    SOLAR_COLORS, LATITUDE, LONGITUDE, TIMEZONE, to_eat_ms,
+    LATITUDE, LONGITUDE, TIMEZONE, to_eat_ms,
     extraterrestrial_radiation, get_season_boundaries, insert_gap_breaks,
 )
 
@@ -185,24 +185,12 @@ def _build_daily_insolation(daily_df):
     dates_ms = daily_df["date_ms"].tolist()
     values = daily_df["insolation_kwh"].tolist()
 
-    # Color by intensity
-    colors = []
-    for v in values:
-        if v < 3:
-            colors.append("#4575b4")
-        elif v < 4.5:
-            colors.append("#fee090")
-        elif v < 5.5:
-            colors.append("#fc8d59")
-        else:
-            colors.append("#d73027")
-
     traces = [{
         "type": "bar",
         "name": "Daily Insolation",
         "x_ms": dates_ms,
         "y": values,
-        "marker": {"color": colors},
+        "marker": {"color": "#ff8c00"},
     }]
 
     layout = {
@@ -219,6 +207,7 @@ def _build_daily_insolation(daily_df):
             "text": "Clear-sky reference (5.5 kWh/m\u00b2/day)",
             "showarrow": False,
             "xanchor": "right",
+            "yanchor": "bottom",
             "font": {"size": 10, "color": "red"},
         }],
     }
@@ -315,24 +304,12 @@ def _build_solar_distribution(sdf):
     hist, bin_edges = np.histogram(daytime, bins=bins)
     bin_centers = [(bin_edges[i] + bin_edges[i + 1]) / 2 for i in range(len(hist))]
 
-    # Color by intensity
-    colors = []
-    for bc in bin_centers:
-        if bc < 200:
-            colors.append(SOLAR_COLORS["low"])
-        elif bc < 500:
-            colors.append(SOLAR_COLORS["moderate"])
-        elif bc < 800:
-            colors.append(SOLAR_COLORS["high"])
-        else:
-            colors.append(SOLAR_COLORS["very_high"])
-
     traces = [{
         "type": "bar",
         "name": "Frequency",
         "x": [round(b, 0) for b in bin_centers],
         "y": hist.tolist(),
-        "marker": {"color": colors},
+        "marker": {"color": "#ff8c00"},
     }]
 
     # Modal bin
