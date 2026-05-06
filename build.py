@@ -587,6 +587,11 @@ optgroup{font-weight:600;font-style:normal}
           </select>
         </label>
       </div>
+      <div style="margin-top:6px;display:flex;align-items:center;gap:4px">
+        <span style="font-size:10px;color:#666">Threshold:</span>
+        <input id="wr-thresh-input" type="number" min="0" step="0.1" placeholder="e.g. 15" style="width:65px;font-size:11px;padding:2px 4px;border:1px solid #ccc;border-radius:3px" oninput="setWrThreshold(this.value)">
+        <span id="wr-thresh-unit" style="font-size:10px;color:#666">km/h</span>
+      </div>
     </div>
 
     <!-- Solar distribution granularity (solar-distribution only) -->
@@ -798,6 +803,7 @@ const state = {
   solarDistBinSize: 50,     // bin width in W/m² for solar distribution histogram
   windUnit: 'kmh',  // 'ms' = m/s, 'kmh' = km/h (default)
   ventThreshKph: 3.5, // ventilation availability threshold in km/h
+  wrThreshKph: null,  // wind rose threshold in km/h (null = disabled)
   windCatSystem: 'beaufort',   // classification system for wind-category-dist
   arcDiagMode: false,          // show calibration view instead of bar chart
   windCatValueUnit: 'pct',     // count by: pct|hours|days|weeks|months
@@ -1210,6 +1216,12 @@ function updateStatsPanel() {
     html += statsRow('Prevailing dir', ws.prevailingDir);
     html += statsRow('Median', wDisp(ws.medianSpeed) + ' ' + wLabel());
     html += statsRow('95th percentile', wDisp(ws.p95Speed) + ' ' + wLabel());
+    if (ct === 'wind-rose' && _computedChart && _computedChart.threshStats) {
+      const ts = _computedChart.threshStats;
+      html += '<div class="stats-row" style="border-top:1px solid #c8e6c9;margin-top:2px;padding-top:4px"><span class="stats-label">Threshold</span><span class="stats-value">' + (Math.round(wToUnit(ts.threshKph)*10)/10) + ' ' + wLabel() + '</span></div>';
+      html += statsRow('Above threshold', ts.pct + '%');
+      html += statsRow('Dominant dir (above)', ts.domDir);
+    }
     if (ct === 'gust-factor' && chart) {
       html += statsRow('Mean gust factor', chart.meanGustFactor);
       html += statsRow('Median gust factor', chart.medianGustFactor);
@@ -1356,6 +1368,22 @@ function setWindUnit(unit) {
     const bv = document.getElementById('vtu-' + u); if (bv) bv.classList.toggle('active', u === unit);
   });
   _syncVentSlider();
+  const wrUnit = document.getElementById('wr-thresh-unit');
+  const wrInput = document.getElementById('wr-thresh-input');
+  if (wrUnit) wrUnit.textContent = wLabel();
+  if (wrInput && state.wrThreshKph) wrInput.value = Math.round(wToUnit(state.wrThreshKph) * 10) / 10;
+  updatePlot();
+}
+
+function setWrThreshold(val) {
+  const v = parseFloat(val);
+  if (!val || isNaN(v) || v <= 0) {
+    state.wrThreshKph = null;
+  } else {
+    if (state.windUnit === 'ms')      state.wrThreshKph = v / _KPH_TO_MS;
+    else if (state.windUnit === 'kn') state.wrThreshKph = v / _KPH_TO_KN;
+    else                               state.wrThreshKph = v;
+  }
   updatePlot();
 }
 
@@ -1480,7 +1508,7 @@ function _wrSliderCalcMaxR() {
     if (!raw || !raw.ts.length) continue;
     const wr = _buildWindRose(raw);
     const sums = new Array(16).fill(0);
-    wr.data.forEach(tr => { tr.r.forEach((v, j) => { sums[j] += v; }); });
+    wr.data.filter(tr=>tr.type==='barpolar').forEach(tr => { tr.r.forEach((v, j) => { sums[j] += v; }); });
     peaks.push(Math.max(...sums));
   }
   if (!peaks.length) { _wrSlider.maxR = 10; return; }
@@ -1544,7 +1572,7 @@ function _wrSliderRender(animate) {
 
   // Determine axis range: use base p90, but expand for outliers
   const sums = new Array(16).fill(0);
-  wr.data.forEach(tr => { tr.r.forEach((v, j) => { sums[j] += v; }); });
+  wr.data.filter(tr=>tr.type==='barpolar').forEach(tr => { tr.r.forEach((v, j) => { sums[j] += v; }); });
   const framePeak = Math.max(...sums);
   const baseMax = _wrSlider.maxR || 10;
   const needR = framePeak > baseMax ? Math.ceil(framePeak * 1.05) : baseMax;
@@ -1823,7 +1851,27 @@ function _buildWindRose(raw) {
   const sums=new Array(16).fill(0);
   traces.forEach(tr=>tr.r.forEach((v,j)=>{sums[j]+=v;}));
   _wrSums = sums.slice();
-  return {data:traces, calmPct,
+
+  let threshStats = null;
+  if (state.wrThreshKph && total) {
+    const tKph = state.wrThreshKph;
+    const cnt = {}; _C16.forEach(d => cnt[d] = 0);
+    raw.avgWind.forEach((v, i) => {
+      if (v == null || v <= tKph) return;
+      const d = _cBin(raw.windDir[i]); if (d) cnt[d]++;
+    });
+    const rVals = _C16.map(d => total ? Math.round(cnt[d] / total * 10000) / 100 : 0);
+    const abovePct = Math.round(rVals.reduce((a, b) => a + b, 0) * 10) / 10;
+    const maxIdx = rVals.indexOf(Math.max(...rVals));
+    const domDir = rVals[maxIdx] > 0 ? _C16[maxIdx] : 'n/a';
+    threshStats = {pct: abovePct, domDir, threshKph: tKph};
+    traces.push({type:'scatterpolar', mode:'lines',
+      r:[...rVals, rVals[0]], theta:[..._C16, _C16[0]],
+      name:'>' + Math.round(wToUnit(tKph)*10)/10 + ' ' + wLabel(),
+      line:{color:'#222', width:2, dash:'dot'}, showlegend:true});
+  }
+
+  return {data:traces, calmPct, threshStats,
     layout:{polar:{angularaxis:{direction:'clockwise',rotation:90,tickmode:'array',tickvals:Array.from({length:16},(_,i)=>i*22.5),ticktext:_C16},radialaxis:{ticksuffix:'%',angle:45}},barmode:'stack',bargap:0,showlegend:true,legend:{x:1.1,y:1}}};
 }
 
