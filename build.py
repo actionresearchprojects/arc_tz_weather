@@ -3409,6 +3409,10 @@ function init() {
   // Wire rain events table sort
   initRainEventsSort();
 
+  // Set wind rose threshold slider max to actual data max
+  const _wrSlInit = document.getElementById('wr-thresh-slider');
+  if (_wrSlInit) _wrSlInit.max = Math.ceil(wToUnit(ALL_DATA.stats.wind.maxSpeed));
+
   // Initial render
   updatePlot();
 }
