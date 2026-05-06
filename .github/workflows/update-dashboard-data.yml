@@ -32,12 +32,17 @@ jobs:
           cd /tmp/temp_humid
           git sparse-checkout set data/omnisense data/cycles
           cd -
-          # Copy the latest CSV (remove old ones first to prevent accumulation)
+          # Copy the latest CSV only if it contains weather station data
           mkdir -p data/omnisense
-          rm -f data/omnisense/omnisense_*.csv
-          cp /tmp/temp_humid/data/omnisense/omnisense_*.csv data/omnisense/ 2>/dev/null || true
-          # Remove legacy subfolder if copied
-          rm -rf data/omnisense/legacy
+          NEW_CSV=$(ls /tmp/temp_humid/data/omnisense/omnisense_*.csv 2>/dev/null | tail -1)
+          if [ -n "$NEW_CSV" ] && grep -q "avg_wind_speed_kph" "$NEW_CSV"; then
+            rm -f data/omnisense/omnisense_*.csv
+            cp "$NEW_CSV" data/omnisense/
+            rm -rf data/omnisense/legacy
+            echo "Updated CSV: $(basename $NEW_CSV)"
+          else
+            echo "::warning::New CSV missing weather station data; keeping previous CSV"
+          fi
           ls -la data/omnisense/
           # Copy cycle data (ENSO/IOD/MJO) — arc_tz_temp_humid fetches these daily
           mkdir -p data/cycles/enso data/cycles/iod data/cycles/mjo
