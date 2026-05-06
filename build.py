@@ -589,7 +589,7 @@ optgroup{font-weight:600;font-style:normal}
       </div>
       <div style="margin-top:6px">
         <div style="font-size:10px;color:#666;margin-bottom:2px">Threshold:</div>
-        <input id="wr-thresh-slider" type="range" min="0.01" max="40" step="0.5" value="0.01" style="width:100%;margin:0 0 4px 0;display:block" oninput="onWrThreshSlider(this.value)">
+        <input id="wr-thresh-slider" type="range" min="0" max="40" step="1" value="0" style="width:100%;margin:0 0 4px 0;display:block" oninput="onWrThreshSlider(this.value)">
         <div style="display:flex;align-items:center;gap:4px">
           <input id="wr-thresh-input" type="number" min="0" step="0.1" placeholder="e.g. 15" style="width:65px;font-size:11px;padding:2px 4px;border:1px solid #ccc;border-radius:3px" oninput="setWrThreshold(this.value)">
           <span id="wr-thresh-unit" style="font-size:10px;color:#666">km/h</span>
@@ -1375,9 +1375,8 @@ function setWindUnit(unit) {
   const wrInput = document.getElementById('wr-thresh-input');
   const wrSl = document.getElementById('wr-thresh-slider');
   if (wrUnit) wrUnit.textContent = wLabel();
-  if (state.windUnit === 'ms')      { if (wrSl) { wrSl.min=0.01; wrSl.max=11;  wrSl.step=0.1; } }
-  else if (state.windUnit === 'kn') { if (wrSl) { wrSl.min=0.01; wrSl.max=22;  wrSl.step=0.5; } }
-  else                               { if (wrSl) { wrSl.min=0.01; wrSl.max=40;  wrSl.step=0.5; } }
+  const _wrMax = Math.ceil(wToUnit(ALL_DATA.stats.wind.maxSpeed));
+  if (wrSl) { wrSl.min=0; wrSl.max=_wrMax; wrSl.step=1; }
   if (state.wrThreshKph) {
     const cv = Math.round(wToUnit(state.wrThreshKph) * 10) / 10;
     if (wrInput) wrInput.value = cv;
@@ -1387,9 +1386,11 @@ function setWindUnit(unit) {
 }
 
 function onWrThreshSlider(val) {
+  const v = parseFloat(val);
+  const actual = v <= 0 ? 0.01 : v;
   const inp = document.getElementById('wr-thresh-input');
-  if (inp) inp.value = parseFloat(val) > 0 ? val : '';
-  setWrThreshold(val);
+  if (inp) inp.value = actual;
+  setWrThreshold(actual);
 }
 
 function setWrThreshold(val) {
