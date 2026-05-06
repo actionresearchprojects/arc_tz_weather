@@ -185,10 +185,13 @@ optgroup{font-weight:600;font-style:normal}
           </select>
         </label>
       </div>
-      <div style="margin-top:6px;display:flex;align-items:center;gap:4px">
-        <span style="font-size:10px;color:#666">Threshold:</span>
-        <input id="wr-thresh-input" type="number" min="0" step="0.1" placeholder="e.g. 15" style="width:65px;font-size:11px;padding:2px 4px;border:1px solid #ccc;border-radius:3px" oninput="setWrThreshold(this.value)">
-        <span id="wr-thresh-unit" style="font-size:10px;color:#666">km/h</span>
+      <div style="margin-top:6px">
+        <div style="font-size:10px;color:#666;margin-bottom:2px">Threshold:</div>
+        <input id="wr-thresh-slider" type="range" min="0" max="40" step="0.5" value="0" style="width:100%;margin:0 0 4px 0;display:block" oninput="onWrThreshSlider(this.value)">
+        <div style="display:flex;align-items:center;gap:4px">
+          <input id="wr-thresh-input" type="number" min="0" step="0.1" placeholder="e.g. 15" style="width:65px;font-size:11px;padding:2px 4px;border:1px solid #ccc;border-radius:3px" oninput="setWrThreshold(this.value)">
+          <span id="wr-thresh-unit" style="font-size:10px;color:#666">km/h</span>
+        </div>
       </div>
     </div>
 
@@ -1480,19 +1483,37 @@ function setWindUnit(unit) {
   _syncVentSlider();
   const wrUnit = document.getElementById('wr-thresh-unit');
   const wrInput = document.getElementById('wr-thresh-input');
+  const wrSl = document.getElementById('wr-thresh-slider');
   if (wrUnit) wrUnit.textContent = wLabel();
-  if (wrInput && state.wrThreshKph) wrInput.value = Math.round(wToUnit(state.wrThreshKph) * 10) / 10;
+  if (state.windUnit === 'ms')      { if (wrSl) { wrSl.min=0; wrSl.max=11;  wrSl.step=0.1; } }
+  else if (state.windUnit === 'kn') { if (wrSl) { wrSl.min=0; wrSl.max=22;  wrSl.step=0.5; } }
+  else                               { if (wrSl) { wrSl.min=0; wrSl.max=40;  wrSl.step=0.5; } }
+  if (state.wrThreshKph) {
+    const cv = Math.round(wToUnit(state.wrThreshKph) * 10) / 10;
+    if (wrInput) wrInput.value = cv;
+    if (wrSl) wrSl.value = Math.min(cv, parseFloat(wrSl.max));
+  }
   updatePlot();
+}
+
+function onWrThreshSlider(val) {
+  const inp = document.getElementById('wr-thresh-input');
+  if (inp) inp.value = parseFloat(val) > 0 ? val : '';
+  setWrThreshold(val);
 }
 
 function setWrThreshold(val) {
   const v = parseFloat(val);
   if (!val || isNaN(v) || v <= 0) {
     state.wrThreshKph = null;
+    const sl = document.getElementById('wr-thresh-slider');
+    if (sl) sl.value = 0;
   } else {
     if (state.windUnit === 'ms')      state.wrThreshKph = v / _KPH_TO_MS;
     else if (state.windUnit === 'kn') state.wrThreshKph = v / _KPH_TO_KN;
     else                               state.wrThreshKph = v;
+    const sl = document.getElementById('wr-thresh-slider');
+    if (sl) sl.value = Math.min(v, parseFloat(sl.max));
   }
   updatePlot();
 }
@@ -1976,7 +1997,7 @@ function _buildWindRose(raw) {
     const domDir = rVals[maxIdx] > 0 ? _C16[maxIdx] : 'n/a';
     threshStats = {pct: abovePct, domDir, threshKph: tKph};
     traces.push({type:'scatterpolar', mode:'lines',
-      r:[...rVals, rVals[0]], theta:[..._C16, _C16[0]],
+      r:[...Array(16).fill(abovePct), abovePct], theta:[..._C16, _C16[0]],
       name:'>' + Math.round(wToUnit(tKph)*10)/10 + ' ' + wLabel(),
       line:{color:'#222', width:2, dash:'dot'}, showlegend:true});
   }
