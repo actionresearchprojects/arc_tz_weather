@@ -1997,7 +1997,7 @@ function _buildWindRose(raw) {
     const domDir = rVals[maxIdx] > 0 ? _C16[maxIdx] : 'n/a';
     threshStats = {pct: abovePct, domDir, threshKph: tKph};
     traces.push({type:'scatterpolar', mode:'lines',
-      r:[...Array(16).fill(abovePct), abovePct], theta:[..._C16, _C16[0]],
+      r:[...rVals, rVals[0]], theta:[..._C16, _C16[0]],
       name:'>' + Math.round(wToUnit(tKph)*10)/10 + ' ' + wLabel(),
       line:{color:'#222', width:2, dash:'dot'}, showlegend:true});
   }
