@@ -1565,11 +1565,11 @@ function onVentThreshDrag(rawVal) {
   else if (state.windUnit === 'kn') state.ventThreshKph = v / _KPH_TO_KN;
   else                               state.ventThreshKph = v;
   _updateVentThreshLabel();
+  updatePlot();
 }
 
 function onVentThreshSlide(rawVal) {
   onVentThreshDrag(rawVal);
-  updatePlot();
 }
 
 function _buildVentTraces(daily) {
