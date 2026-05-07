@@ -259,7 +259,7 @@ def load_weather_csv(csv_path):
              "solar_wm2", "precip_total_mm", "precip_rate_mmh", "battery_v"]]
 
     # Convert types
-    df["timestamp"] = pd.to_datetime(df["timestamp"])
+    df["timestamp"] = pd.to_datetime(df["timestamp"], dayfirst=True)
     df["timestamp"] = df["timestamp"].dt.tz_localize(TIMEZONE)
     for col in ["avg_wind_kph", "peak_wind_kph", "solar_wm2",
                  "precip_total_mm", "precip_rate_mmh", "battery_v"]:
