@@ -69,13 +69,18 @@ def main():
         start_candidate = (now_eat - timedelta(days=DEFAULT_LOOKBACK_DAYS)).strftime("%Y-%m-%d")
         start_date = max(start_candidate, EARLIEST_DATA)
 
-    # Convert to dd/mm/yyyy (server expects this format for input)
-    start_ddmmyyyy = f"{start_date[8:10]}/{start_date[5:7]}/{start_date[0:4]}"
-    end_ddmmyyyy   = f"{today_str[8:10]}/{today_str[5:7]}/{today_str[0:4]}"
+    # Server expects M/D/YYYY (American format, no leading zeros) for input dates.
+    # Using dd/mm/yyyy causes ambiguous dates (e.g. 08/05 read as August 5 not May 8).
+    def to_mdy(iso: str) -> str:
+        y, m, d = iso.split("-")
+        return f"{int(m)}/{int(d)}/{y}"
+
+    start_mdy = to_mdy(start_date)
+    end_mdy   = to_mdy(today_str)
 
     print(f"Omnisense fetch — {now_utc.strftime('%Y-%m-%d %H:%M UTC')}")
     print(f"  Date range: {start_date} → {today_str}")
-    print(f"  Form dates (dd/mm/yyyy): {start_ddmmyyyy} → {end_ddmmyyyy}")
+    print(f"  Form dates (m/d/yyyy): {start_mdy} → {end_mdy}")
 
     session = requests.Session()
     session.headers.update(HEADERS)
@@ -117,8 +122,9 @@ def main():
         "siteNbr": SITE_NBR,
         "sensorId": "",
         "gwayId": "",
-        "dnldFrDate": start_ddmmyyyy,
-        "dnldToDate": end_ddmmyyyy,
+        "dateFormat": "SE",          # required by server stored proc; SE = yyyy-mm-dd hh:mm:ss
+        "dnldFrDate": start_mdy,
+        "dnldToDate": end_mdy,
         "averaging": "N",
         "btnAct": "Submit",
     }
@@ -141,9 +147,10 @@ def main():
         match = re.search(r"go\(\s*'([^']+)'\)", resp.text)
 
     if not match:
-        print("WARNING: Could not find download link in response.", file=sys.stderr)
-        print("\nDone (no data downloaded).")
-        sys.exit(0)
+        print("ERROR: Could not find download link in response.", file=sys.stderr)
+        print(f"  Response size: {len(resp.text)} bytes", file=sys.stderr)
+        print(f"  Response preview:\n{resp.text[:1000]}", file=sys.stderr)
+        sys.exit(1)
 
     csv_path = match.group(1)
     if not csv_path.startswith("/fileshare/images/"):
@@ -154,6 +161,9 @@ def main():
     row_match = re.search(r"(\d+) rows of data", resp.text)
     row_count = row_match.group(1) if row_match else "?"
     print(f"  Download ready: {row_count} rows → {csv_path}")
+    if row_count == "0":
+        print("ERROR: Server reports 0 rows of data — export is empty.", file=sys.stderr)
+        sys.exit(1)
 
     # Step 4: Download CSV
     print("\n[4/4] Downloading CSV...")
@@ -171,6 +181,15 @@ def main():
     if "sensor_desc" not in csv_text:
         print("ERROR: Not an Omnisense CSV", file=sys.stderr)
         print(csv_text[:500], file=sys.stderr)
+        sys.exit(1)
+
+    # Validate that the CSV contains actual data rows, not just sensor metadata headers.
+    # A valid export has a column-header line with "temperature" and "humidity" followed
+    # by numeric data rows. An empty export contains only sensor_desc/site_name pairs.
+    if "temperature" not in csv_text or "humidity" not in csv_text:
+        print("ERROR: CSV contains no data columns — Omnisense returned an empty export.", file=sys.stderr)
+        print(f"  File size: {len(csv_data)} bytes", file=sys.stderr)
+        print(f"  Content preview:\n{csv_text[:600]}", file=sys.stderr)
         sys.exit(1)
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
