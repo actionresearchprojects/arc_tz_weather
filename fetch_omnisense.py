@@ -20,7 +20,6 @@ BASE = "https://omnisense.com"
 OUTPUT_DIR = Path("data/omnisense")
 LEGACY_DIR = OUTPUT_DIR / "legacy"
 EARLIEST_DATA = "2026-01-25"          # first day with sensor data
-DEFAULT_LOOKBACK_DAYS = 90
 
 USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -51,8 +50,6 @@ def main():
         sys.exit(1)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--full-history", action="store_true",
-                        help=f"Fetch from {EARLIEST_DATA} to today")
     parser.add_argument("--debug", action="store_true",
                         help="Save HTML responses for debugging")
     args = parser.parse_args()
@@ -62,12 +59,7 @@ def main():
     today_str = now_eat.strftime("%Y-%m-%d")
     now_tag = now_utc.strftime("%Y%m%d_%H%M")
 
-    if args.full_history:
-        start_date = EARLIEST_DATA
-    else:
-        # Default: go back 90 days, but never before the earliest data
-        start_candidate = (now_eat - timedelta(days=DEFAULT_LOOKBACK_DAYS)).strftime("%Y-%m-%d")
-        start_date = max(start_candidate, EARLIEST_DATA)
+    start_date = EARLIEST_DATA
 
     # Server expects M/D/YYYY (American format, no leading zeros) for input dates.
     # Using dd/mm/yyyy causes ambiguous dates (e.g. 08/05 read as August 5 not May 8).
