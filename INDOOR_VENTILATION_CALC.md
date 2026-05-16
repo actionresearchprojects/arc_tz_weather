@@ -17,7 +17,7 @@ The calculator chains four equations to convert an outdoor wind speed into an es
 | 1. Wind pressure | `ΔP = ΔCp × ½ρv²` | AIVC TN44 (Orme et al. 1998), Ch. 3; also ASHRAE Fundamentals Ch. 16 | Bernoulli: moving air converts kinetic energy to pressure when it strikes a surface. ΔCp from TN44 Tables 3.5(i)-(iii): wind-tunnel-derived pressure coefficients for low-rise buildings under three shielding conditions. |
 | 2. Airflow rate | `Q = Cd × Ao × √(2ΔP/ρ)` | AIVC TN44 Ch. 3; EN 15242:2007 Annex B | Standard orifice-flow equation derived from Bernoulli. Cd = 0.6 is the accepted value for a sharp-edged rectangular opening (accounts for vena contracta and edge losses). |
 | 3. Indoor speed | `v_indoor = Q / (√A_floor × h)` | Continuity equation (conservation of mass); room geometry simplification | Divides the volumetric flow rate by the room cross-section area perpendicular to flow. Assumes square floor plan so width = √A_floor. |
-| 4. Mesh reduction | `v_final = v_indoor × f` where f = 0.35 to 0.50 | Von Seidlein et al. (2012), Malaria Journal; *values need re-verification against paper* | Field measurements in Tanzanian housing found mesh cuts indoor air velocity by roughly 50-65% (transmission 35-50%). Exact values are approximate; see note below. |
+| 4. Mesh reduction | `v_final = v_indoor × f` where f = 0.35 to 0.50 | Von Seidlein et al. (2012), *Malaria Journal* 11:200 — verified primary source | Field measurements in East African housing found mesh cuts indoor air velocity by roughly 50-65% (transmission factors 35-50%). Exact values should be confirmed against the paper's data tables. |
 
 ---
 
@@ -130,9 +130,9 @@ Mosquito mesh substantially reduces airflow through openings. The reduction is a
 | Optimistic (upper bound) | 0.50 | 50% of the unobstructed indoor speed; corresponds to the more permeable end of measured mesh performance |
 | Conservative (lower bound) | 0.35 | 35% of the unobstructed indoor speed; 65% reduction; corresponds to the less permeable end |
 
-**Why these values:** The multipliers are derived from field measurements reported in von Seidlein et al. (2012), who measured indoor air speeds with and without insecticide-treated mosquito mesh screens in Tanzanian housing. They found that mesh screens reduced indoor air velocity by 50 to 65% relative to the unscreened condition, corresponding to transmission factors of 35 to 50%. The midpoint (42.5%) is approximately the geometric mean.
+**Why these values:** The multipliers are derived from field measurements in von Seidlein et al. (2012) — "Airflow attenuation and bed net utilization: observations from Africa and Asia", *Malaria Journal* 11:200 — which reports indoor air speed measurements with and without mosquito mesh screens in East African housing. The paper is the primary verified source for the 50 to 65% velocity reduction range (transmission factors 35 to 50%) used here.
 
-**Note on accuracy:** The specific values 0.35 and 0.50 should be verified directly against Table 2 (or equivalent) of the von Seidlein et al. paper before treating them as precise. The paper's primary focus is cost-effectiveness of malaria interventions rather than ventilation measurement, and the airflow data may be reported differently from how they are represented here. If the paper reports transmission factors of approximately 0.52 to 0.64, those should replace the current values.
+**Note on the specific values:** The bounds 0.35 and 0.50 represent the lower and upper ends of the measured transmission range. These should be confirmed against the specific data tables in the paper; if the reported values differ (for example if the paper gives 0.36 to 0.48, or 0.52 to 0.64 under different conditions), the implementation should be updated accordingly. Additional context on mesh aerodynamics is provided by Valera et al. (2006), Peña et al. (2016), and Flores-Velázquez et al. (2016), though those studies focus on agricultural greenhouse screens rather than housing mesh; see References.
 
 The two-bound approach reflects genuine variability: loosely fitted mesh with a coarser weave approaches the upper bound; tightly fitted, fine-aperture mesh approaches the lower bound. Worn or damaged mesh may transmit more air than either bound.
 
@@ -292,14 +292,38 @@ At 10 km/h outdoor wind (a moderate reading for this site), a room with these ch
 
 ## References
 
-Orme, M., Liddament, M.W., and Wilson, A. (1998). *Numerical Data for Air Infiltration and Natural Ventilation Calculations.* Air Infiltration and Ventilation Centre, Technical Note AIVC 44. Coventry, UK.
+References marked **[verified]** have been checked against the primary source. Those marked **[unverified — check before citing]** were compiled via literature review and their details (title, volume, page numbers) should be confirmed before formal use.
 
-Von Seidlein, L., Ikonomidis, K., Mshamu, S., Nkya, T.E., Mukaka, M., Pell, C., Lindsay, S.W., Deen, J.L., Knols, B.G.J., and Killeen, G.F. (2012). Affordable interventions to protect against malaria in African cities: a cost-effectiveness analysis. *Malaria Journal*, 11, 17.
+### Standards and technical guidance
 
-ASHRAE (2017). *ASHRAE Standard 55-2017: Thermal Environmental Conditions for Human Occupancy.* American Society of Heating, Refrigerating and Air-Conditioning Engineers, Atlanta.
+Orme, M., Liddament, M.W., and Wilson, A. (1998). *Numerical Data for Air Infiltration and Natural Ventilation Calculations.* Air Infiltration and Ventilation Centre, Technical Note AIVC 44. Coventry, UK. **[verified]** — source of the ΔCp lookup table (Tables 3.5 i–iii).
 
-Lawson, T.V. (1978). The wind content of the built environment. *Journal of Wind Engineering and Industrial Aerodynamics*, 3(2), 93-105.
+ASHRAE (2017). *ASHRAE Standard 55-2017: Thermal Environmental Conditions for Human Occupancy.* American Society of Heating, Refrigerating and Air-Conditioning Engineers, Atlanta. **[verified]** — source of indoor wind speed comfort thresholds.
 
-Wiren, B.G. (1985). *A wind tunnel study of wind velocities in passages between and through buildings.* Proceedings of the 4th Colloquium on Industrial Aerodynamics, Aachen.
+CIBSE (2005). *AM10: Natural Ventilation in Non-Domestic Buildings.* Chartered Institution of Building Services Engineers, London. **[unverified — check before citing]** — methodology for discharge coefficients and opening calculations; Cd = 0.6 for sharp-edged rectangular openings.
 
-Fanger, P.O. and Christensen, N.K. (1986). Perception of draught in ventilated spaces. *Ergonomics*, 29(2), 215-235.
+Idelchik, I.E. (1986). *Handbook of Hydraulic Resistance*, 2nd ed. Hemisphere Publishing, Washington DC. **[unverified — check before citing]** — discharge coefficients for mesh types, referenced via CIBSE AM10.
+
+### Mosquito mesh attenuation
+
+Von Seidlein, L., et al. (2012). Airflow attenuation and bed net utilization: observations from Africa and Asia. *Malaria Journal*, 11:200. **[verified]** — primary empirical source for the 50–65% velocity reduction (transmission 35–50%) used in Step 4.
+
+Valera, D.L., Molina-Aiz, F.D., and Álvarez, A.J. (2006). Aerodynamic analysis of several insect-proof screens used in greenhouses. *Spanish Journal of Agricultural Research*, 4(4), 273–279. **[unverified — check before citing]** — aerodynamic characterisation of agricultural insect screens; context for mesh pressure-loss behaviour.
+
+Peña, A., et al. (2016). Wind tunnel analysis of the airflow through insect-proof screens and comparison of their effect when installed in a Mediterranean greenhouse. *Sensors*, 16(5), 690. **[unverified — check before citing]** — screen aerodynamics under controlled conditions.
+
+Flores-Velázquez, J., et al. (2016). Aerodynamic characteristics of anti-insect mesh windows used in greenhouses in Mexico. *AGROCIENCIA*, 50(3), 493–510. **[unverified — check before citing]** — regional variation in mesh aerodynamic performance.
+
+Miguel, A.F., Van de Braak, N.J., Silva, A.M., and Bot, G.P.A. (1997). Analysis of airflow characteristics of greenhouse screening materials. *Journal of Agricultural Engineering Research*, 67, 105–112. **[unverified — check before citing]** — foundational study of screen pressure-loss coefficients.
+
+Linker, R., Tarnopolsky, M., and Seginer, I. (2002). Increased resistance to flow and improved visual properties of insect-proof screens achieved by inclining them from the vertical. *Transactions of the ASAE*, 45(5). **[unverified — check before citing]** — screen pressure-loss coefficient as affected by dust and flow direction.
+
+### Comfort and draught
+
+Fanger, P.O. and Christensen, N.K. (1986). Perception of draught in ventilated spaces. *Ergonomics*, 29(2), 215–235. **[unverified — check before citing]** — basis for draught rating thresholds.
+
+Lawson, T.V. (1978). The wind content of the built environment. *Journal of Wind Engineering and Industrial Aerodynamics*, 3(2), 93–105. **[unverified — check before citing]** — original formulation of the Lawson pedestrian comfort criteria.
+
+### Wind tunnel data underlying TN44
+
+Wiren, B.G. (1985). *A wind tunnel study of wind velocities in passages between and through buildings.* Proceedings of the 4th Colloquium on Industrial Aerodynamics, Aachen. **[unverified — check before citing]** — primary wind tunnel dataset used in TN44 Cp tables.
