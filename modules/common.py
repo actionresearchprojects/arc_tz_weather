@@ -20,10 +20,12 @@ SOLAR_CONSTANT = 1361  # W/m2
 # IGRF-14 linear model (valid 2025.0-2030.0).  True = Magnetic + declination.
 # Constants derived from ppigrf 2.1.0 / IGRF-14 at sea level:
 #   epoch value (2025.0): -2.7318°  secular variation: -0.0900°/yr
-# When IGRF-15 / WMM-2030 is released, update these two constants.
+# When IGRF-15 / WMM-2030 is released, update _IGRF14_DECL_REF, _IGRF14_DECL_RATE,
+# and _IGRF14_EXPIRY with the new model's site-specific values.
 _IGRF14_REF_YEAR  = 2025.0
 _IGRF14_DECL_REF  = -2.7318   # degrees at 2025.0
 _IGRF14_DECL_RATE = -0.0900   # degrees per year (secular variation)
+_IGRF14_EXPIRY    = date(2030, 1, 1)
 
 def _declination_for_date(d=None):
     if d is None:
@@ -34,7 +36,8 @@ def _declination_for_date(d=None):
     decimal_year = yr + doy / days_in_year
     return round(_IGRF14_DECL_REF + (decimal_year - _IGRF14_REF_YEAR) * _IGRF14_DECL_RATE, 3)
 
-MAGNETIC_DECLINATION_DEG = _declination_for_date()
+MAGNETIC_DECLINATION_DEG     = _declination_for_date()
+MAGNETIC_DECLINATION_EXPIRED = date.today() >= _IGRF14_EXPIRY
 
 # ── Beaufort Scale (WMO definition, classified in knots) ──────────────────────
 # The Beaufort scale is defined in knots. All other units are derived using the

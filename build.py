@@ -26,6 +26,7 @@ import pandas as pd
 from modules.common import (
     load_weather_csv, find_latest_csv, build_available_periods,
     wind_qc, detect_precip_resets, to_eat_ms, TIMEZONE,
+    MAGNETIC_DECLINATION_EXPIRED, _IGRF14_EXPIRY,
 )
 from modules import wind, solar, precipitation, cross_variable
 
@@ -371,6 +372,8 @@ def build_dashboard(csv_path=None):
         "stats": all_stats,
         "raw": raw_data,
         "driHourly": dri_hourly,
+        "declModelExpired": MAGNETIC_DECLINATION_EXPIRED,
+        "declModelExpiry": _IGRF14_EXPIRY.strftime("%B %Y"),
         "dataFreshness": {
             "csvFile": Path(csv_file).name,
             "fetchTime": fetch_ts,
@@ -413,6 +416,13 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 .polarlayer text{stroke:white;stroke-width:3px;paint-order:stroke fill;stroke-linejoin:round}
 body{font-family:'Ubuntu',sans-serif;font-size:13px;background:#f8f9fa;color:#333;display:flex;flex-direction:column;height:100vh;overflow:hidden}
 #header{background:white;border-bottom:1px solid #ddd;padding:6px 12px;display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap;min-height:40px}
+#decl-expired-banner{background:#fff3cd;border-bottom:3px solid #e6a817;flex-shrink:0}
+#decl-expired-inner{display:flex;align-items:flex-start;gap:12px;padding:10px 16px;max-width:900px}
+#decl-expired-icon{font-size:22px;color:#b45309;flex-shrink:0;line-height:1.3}
+#decl-expired-inner strong{display:block;margin-bottom:3px;color:#78350f}
+#decl-expired-inner div{font-size:12px;color:#44362a;line-height:1.5}
+#decl-expired-inner code{background:#fde68a;padding:1px 4px;border-radius:3px;font-size:11px}
+#decl-expired-dismiss{margin-left:auto;flex-shrink:0;background:transparent;border:1px solid #92400e;color:#92400e;padding:4px 12px;cursor:pointer;border-radius:4px;font-size:12px;white-space:nowrap;align-self:center}
 #header h1{font-size:18px;font-weight:500;color:#222;margin-right:2px;white-space:nowrap}
 #logo{height:32px;width:auto;flex-shrink:0;vertical-align:middle}
 #header a{display:flex;align-items:center}
@@ -542,6 +552,21 @@ optgroup{font-weight:600;font-style:normal}
       <button onclick="setLanguage('en')">English</button>
       <button onclick="setLanguage('sw')">Kiswahili</button>
     </div>
+  </div>
+</div>
+
+<div id="decl-expired-banner" style="display:none">
+  <div id="decl-expired-inner">
+    <span id="decl-expired-icon">&#9888;</span>
+    <div>
+      <strong>Magnetic declination model expired</strong>
+      The IGRF-14 model used to correct wind directions to true north expired in <span id="decl-expiry-label"></span>.
+      Wind direction readings may be increasingly inaccurate.
+      To fix: update <code>_IGRF14_DECL_REF</code>, <code>_IGRF14_DECL_RATE</code>, and <code>_IGRF14_EXPIRY</code>
+      in <code>modules/common.py</code> using IGRF-15 / WMM-2030 values for this site
+      (-7.065&#176;S, 39.18&#176;E).
+    </div>
+    <button id="decl-expired-dismiss" onclick="document.getElementById('decl-expired-banner').style.display='none'">Dismiss</button>
   </div>
 </div>
 
@@ -3629,6 +3654,13 @@ function init() {
     state.periodGroupBy = e.target.value;
     updatePlot();
   });
+
+  // Magnetic declination model expiry warning
+  if (ALL_DATA.declModelExpired) {
+    const banner = document.getElementById('decl-expired-banner');
+    document.getElementById('decl-expiry-label').textContent = ALL_DATA.declModelExpiry || 'January 2030';
+    banner.style.display = '';
+  }
 
   // Data freshness
   updateDataFreshness();
