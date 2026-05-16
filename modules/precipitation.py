@@ -9,6 +9,7 @@ import numpy as np
 from .common import (
     RAIN_INTENSITY_COLORS, RAIN_DAILY_COLORS, TIMEZONE,
     detect_precip_resets, to_eat_ms, get_season_boundaries, compass_bin, wind_qc,
+    MAGNETIC_DECLINATION_DEG,
 )
 
 
@@ -413,5 +414,5 @@ def _build_rain_events(events):
         "layout": {},
         "events": events[:100],  # Limit for JSON size
         "isTable": True,
-        "note": "Wind directions corrected for magnetic declination (-1.5° westerly, WMM-2025).",
+        "note": f"Wind directions corrected for magnetic declination ({abs(MAGNETIC_DECLINATION_DEG):.2f}° westerly, IGRF-14).",
     }

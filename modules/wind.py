@@ -12,7 +12,7 @@ import numpy as np
 from .common import (
     COMPASS_DIRS_16, COMPASS_DIRS_8, WIND_SPEED_BINS, WIND_SPEED_LABELS,
     WIND_SPEED_COLORS, BEAUFORT_SCALE, VENTILATION_COLORS, WIND_CLASSIFICATIONS,
-    KN_TO_KPH, TIMEZONE, CALM_THRESHOLD_KPH,
+    KN_TO_KPH, TIMEZONE, CALM_THRESHOLD_KPH, MAGNETIC_DECLINATION_DEG,
     wind_qc, compass_bin, beaufort_number, weibull_fit, to_eat_ms,
     get_season_boundaries, insert_gap_breaks,
 )
@@ -174,7 +174,7 @@ def _build_wind_rose(wdf, n_points):
         "data": traces,
         "layout": layout,
         "calmPct": calm_pct,
-        "note": "Wind directions corrected for magnetic declination (-1.5° westerly, WMM-2025).",
+        "note": f"Wind directions corrected for magnetic declination ({abs(MAGNETIC_DECLINATION_DEG):.2f}° westerly, IGRF-14).",
     }
 
 

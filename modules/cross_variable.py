@@ -11,7 +11,7 @@ import numpy as np
 
 from .common import (
     VENTILATION_COLORS, CALM_THRESHOLD_KPH, to_eat_ms, compass_bin,
-    get_season_boundaries, wind_qc,
+    get_season_boundaries, wind_qc, MAGNETIC_DECLINATION_DEG,
 )
 
 
@@ -170,7 +170,7 @@ def _build_driving_rain_index(xdf):
         "directionalDRI": dir_dri,
         "facadeDRI": facade_dri,
         "dominantDir": dominant_dir,
-        "note": "Wind directions corrected for magnetic declination (-1.5° westerly, WMM-2025).",
+        "note": f"Wind directions corrected for magnetic declination ({abs(MAGNETIC_DECLINATION_DEG):.2f}° westerly, IGRF-14).",
     }
 
 

@@ -16,12 +16,25 @@ LATITUDE = -7.065   # ARC ecovillage near Mkuranga
 LONGITUDE = 39.18
 SOLAR_CONSTANT = 1361  # W/m2
 
-# Magnetic declination for Mkuranga, TZ (-7.065°S, 39.18°E).
-# Source: NOAA World Magnetic Model (WMM-2025 / IGRF-13 secular variation).
-# Approximately -1.5° (1.5° westerly) for 2025-2026; annual change ~+0.1°/yr.
-# True bearing = Magnetic bearing + MAGNETIC_DECLINATION_DEG
-# Verify at: https://www.ngdc.noaa.gov/geomag/calculators/magcalc.shtml
-MAGNETIC_DECLINATION_DEG = -1.5
+# Magnetic declination for Mkuranga (-7.065°S, 39.18°E), computed from the
+# IGRF-14 linear model (valid 2025.0-2030.0).  True = Magnetic + declination.
+# Constants derived from ppigrf 2.1.0 / IGRF-14 at sea level:
+#   epoch value (2025.0): -2.7318°  secular variation: -0.0900°/yr
+# When IGRF-15 / WMM-2030 is released, update these two constants.
+_IGRF14_REF_YEAR  = 2025.0
+_IGRF14_DECL_REF  = -2.7318   # degrees at 2025.0
+_IGRF14_DECL_RATE = -0.0900   # degrees per year (secular variation)
+
+def _declination_for_date(d=None):
+    if d is None:
+        d = date.today()
+    yr = d.year
+    doy = (d - date(yr, 1, 1)).days
+    days_in_year = (date(yr + 1, 1, 1) - date(yr, 1, 1)).days
+    decimal_year = yr + doy / days_in_year
+    return round(_IGRF14_DECL_REF + (decimal_year - _IGRF14_REF_YEAR) * _IGRF14_DECL_RATE, 3)
+
+MAGNETIC_DECLINATION_DEG = _declination_for_date()
 
 # ── Beaufort Scale (WMO definition, classified in knots) ──────────────────────
 # The Beaufort scale is defined in knots. All other units are derived using the
