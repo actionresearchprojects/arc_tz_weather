@@ -8,6 +8,19 @@ The primary application is assessing natural cross-ventilation potential in low-
 
 ---
 
+## Equation Summary
+
+The calculator chains four equations to convert an outdoor wind speed into an estimated indoor air speed. The table below shows each equation, its source, and why it is used.
+
+| Step | Equation | Source | Why this equation |
+|---|---|---|---|
+| 1. Wind pressure | `ΔP = ΔCp × ½ρv²` | AIVC TN44 (Orme et al. 1998), Ch. 3; also ASHRAE Fundamentals Ch. 16 | Bernoulli: moving air converts kinetic energy to pressure when it strikes a surface. ΔCp from TN44 Tables 3.5(i)-(iii): wind-tunnel-derived pressure coefficients for low-rise buildings under three shielding conditions. |
+| 2. Airflow rate | `Q = Cd × Ao × √(2ΔP/ρ)` | AIVC TN44 Ch. 3; EN 15242:2007 Annex B | Standard orifice-flow equation derived from Bernoulli. Cd = 0.6 is the accepted value for a sharp-edged rectangular opening (accounts for vena contracta and edge losses). |
+| 3. Indoor speed | `v_indoor = Q / (√A_floor × h)` | Continuity equation (conservation of mass); room geometry simplification | Divides the volumetric flow rate by the room cross-section area perpendicular to flow. Assumes square floor plan so width = √A_floor. |
+| 4. Mesh reduction | `v_final = v_indoor × f` where f = 0.35 to 0.50 | Von Seidlein et al. (2012), Malaria Journal; *values need re-verification against paper* | Field measurements in Tanzanian housing found mesh cuts indoor air velocity by roughly 50-65% (transmission 35-50%). Exact values are approximate; see note below. |
+
+---
+
 ## Background: Why Indoor Air Speed Matters
 
 In hot, humid tropical climates without mechanical cooling, indoor air movement is one of the few reliable routes to thermal comfort. Moving air increases the rate of convective and evaporative heat loss from the skin, lowering the perceived temperature even when the air itself is warm.
@@ -119,7 +132,9 @@ Mosquito mesh substantially reduces airflow through openings. The reduction is a
 
 **Why these values:** The multipliers are derived from field measurements reported in von Seidlein et al. (2012), who measured indoor air speeds with and without insecticide-treated mosquito mesh screens in Tanzanian housing. They found that mesh screens reduced indoor air velocity by 50 to 65% relative to the unscreened condition, corresponding to transmission factors of 35 to 50%. The midpoint (42.5%) is approximately the geometric mean.
 
-The two-bound approach reflects genuine variability: loosely fitted mesh with a coarser weave approaches 50%; tightly fitted, fine-aperture mesh approaches 35%. Worn or damaged mesh may transmit more air than either bound.
+**Note on accuracy:** The specific values 0.35 and 0.50 should be verified directly against Table 2 (or equivalent) of the von Seidlein et al. paper before treating them as precise. The paper's primary focus is cost-effectiveness of malaria interventions rather than ventilation measurement, and the airflow data may be reported differently from how they are represented here. If the paper reports transmission factors of approximately 0.52 to 0.64, those should replace the current values.
+
+The two-bound approach reflects genuine variability: loosely fitted mesh with a coarser weave approaches the upper bound; tightly fitted, fine-aperture mesh approaches the lower bound. Worn or damaged mesh may transmit more air than either bound.
 
 If no mesh is present, a single line is shown with no reduction applied (multiplier = 1.0).
 
