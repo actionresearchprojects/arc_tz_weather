@@ -685,6 +685,71 @@ optgroup{font-weight:600;font-style:normal}
       </div>
     </div>
 
+    <!-- Indoor Ventilation Calculator (shown for wind-category-dist) -->
+    <div id="indoor-vent-controls" style="display:none">
+      <hr class="divider">
+      <div class="section">
+        <div class="section-title">Indoor Air Speed</div>
+        <div style="font-size:10px;color:#666;margin-bottom:6px">Enter your window and room dimensions to estimate how much indoor air movement the outdoor wind produces. Results appear as an overlay on the chart.</div>
+        <label class="cb-label" style="flex-direction:column;align-items:flex-start;gap:2px;margin-bottom:5px"
+          title="The window that faces the wind, where air enters. Measure the open gap (width x height), not the frame. A typical bedroom window is roughly 0.5-1.5 m wide and 1-1.5 m tall.">
+          <span style="font-size:10px;color:#555">Inlet window area (m&sup2;) <span style="color:#aaa;font-size:9px">(?)</span></span>
+          <input type="number" id="iv-inlet-area" min="0.01" max="20" step="0.01" value="1.0" style="width:80px;font-size:11px;border:1px solid #ccc;border-radius:3px;padding:2px 4px">
+        </label>
+        <label class="cb-label" style="flex-direction:column;align-items:flex-start;gap:2px;margin-bottom:5px"
+          title="The window on the opposite side of the room where air exits. If this is smaller than the inlet, it limits how much air can flow through.">
+          <span style="font-size:10px;color:#555">Outlet window area (m&sup2;) <span style="color:#aaa;font-size:9px">(?)</span></span>
+          <input type="number" id="iv-outlet-area" min="0.01" max="20" step="0.01" value="1.0" style="width:80px;font-size:11px;border:1px solid #ccc;border-radius:3px;padding:2px 4px">
+        </label>
+        <label class="cb-label" style="flex-direction:column;align-items:flex-start;gap:2px;margin-bottom:5px"
+          title="Length x width of the room. A bigger room feels less breezy for the same outdoor wind, because the same amount of air is spread over more space. Example: 4 m x 5 m = 20 m2.">
+          <span style="font-size:10px;color:#555">Room floor area (m&sup2;) <span style="color:#aaa;font-size:9px">(?)</span></span>
+          <input type="number" id="iv-floor-area" min="1" max="500" step="0.5" value="20" style="width:80px;font-size:11px;border:1px solid #ccc;border-radius:3px;padding:2px 4px">
+        </label>
+        <label class="cb-label" style="flex-direction:column;align-items:flex-start;gap:2px;margin-bottom:5px"
+          title="Floor to ceiling height. Taller rooms feel less breezy because the airflow spreads over more space from top to bottom.">
+          <span style="font-size:10px;color:#555">Room height (m) <span style="color:#aaa;font-size:9px">(?)</span></span>
+          <input type="number" id="iv-room-height" min="1.5" max="10" step="0.1" value="3.0" style="width:80px;font-size:11px;border:1px solid #ccc;border-radius:3px;padding:2px 4px">
+        </label>
+        <label class="cb-label" style="flex-direction:column;align-items:flex-start;gap:2px;margin-bottom:5px"
+          title="How exposed the building is to wind. Exposed = open land with no nearby buildings or trees. Suburban = some nearby buildings or trees. Urban = closely surrounded by buildings of similar height.">
+          <span style="font-size:10px;color:#555">Shielding condition <span style="color:#aaa;font-size:9px">(?)</span></span>
+          <select id="iv-shielding" style="font-size:11px;border:1px solid #ccc;border-radius:3px;padding:2px 4px;width:130px">
+            <option value="exposed">Exposed (open site)</option>
+            <option value="suburban" selected>Suburban</option>
+            <option value="urban">Urban (sheltered)</option>
+          </select>
+        </label>
+        <label class="cb-label" style="flex-direction:column;align-items:flex-start;gap:2px;margin-bottom:5px"
+          title="Roughly which direction the wind hits the inlet window. Direct means straight through; side-on means wind blows across the face of the building. If you are unsure, Diagonal is a reasonable guess.">
+          <span style="font-size:10px;color:#555">Wind direction to window <span style="color:#aaa;font-size:9px">(?)</span></span>
+          <select id="iv-wind-dir" style="font-size:11px;border:1px solid #ccc;border-radius:3px;padding:2px 4px;width:130px">
+            <option value="direct">Direct (0&#176;)</option>
+            <option value="angle45" selected>Diagonal (45&#176;)</option>
+            <option value="sideon">Side-on (90&#176;)</option>
+          </select>
+        </label>
+        <label class="cb-label" style="margin-bottom:4px"
+          title="Tick this if your windows have mosquito mesh. Mesh cuts the airflow roughly in half. The overlay shows a range: the solid line is the best case, the dotted line is the worst case.">
+          <input type="checkbox" id="iv-mesh" checked style="margin-right:4px">
+          <span style="font-size:10px;color:#555">Mosquito mesh present <span style="color:#aaa;font-size:9px">(?)</span></span>
+        </label>
+        <details style="margin-bottom:6px">
+          <summary style="font-size:10px;color:#4a90d9;cursor:pointer;user-select:none;list-style:none">&#9656; How does this work?</summary>
+          <div style="font-size:10px;color:#444;margin-top:5px;line-height:1.6;background:#f7f9fc;border-radius:4px;padding:6px 8px;border:1px solid #dde4f0">
+            Fill in your room and window measurements, then press Apply. The chart will show a green line for each wind speed band indicating how fast the air would typically be moving inside your room when it is that windy outside.<br><br>
+            Bigger windows, stronger wind, and less shelter all mean more indoor breeze. Mosquito mesh cuts the airflow roughly in half, which is why the overlay shows two lines (best and worst case) when mesh is ticked.<br><br>
+            <a href="INDOOR_VENTILATION_CALC.pdf" target="_blank" style="color:#4a90d9">Full technical reference (PDF) &#8599;</a>
+          </div>
+        </details>
+        <div style="display:flex;gap:4px">
+          <button onclick="applyIndoorVent()" style="flex:1;font-size:11px;padding:3px 6px;border:1px solid #4a90d9;border-radius:4px;cursor:pointer;background:#e8f0ff;color:#1a4a8a">Apply</button>
+          <button onclick="clearIndoorVent()" id="iv-clear-btn" style="display:none;font-size:11px;padding:3px 6px;border:1px solid #ccc;border-radius:4px;cursor:pointer;background:#f5f5f5;color:#666">Clear</button>
+        </div>
+        <div id="iv-status" style="font-size:10px;color:#888;margin-top:4px"></div>
+      </div>
+    </div>
+
     <!-- Stats Panel (populated by JS) -->
     <hr class="divider" id="stats-divider" style="margin:-4px 0 -4px 0">
     <div class="stats-panel" id="stats-panel" style="margin-top:-2px">
@@ -813,6 +878,7 @@ const state = {
   windCatPerUnit: 'day',       // cycle: day|week|month|year
   windCatCustomBands: null,    // user-defined bands; null = use Lawson defaults
   windCatCustomUnit: 'ms',     // unit for custom threshold values: ms|kmh|kn
+  indoorVent: null,            // active indoor ventilation overlay params, or null
 };
 
 let currentLang = 'en';
@@ -1157,6 +1223,7 @@ function updateSidebarControls() {
   const isWindCatDist = ct === 'wind-category-dist';
   document.getElementById('wind-cat-controls').style.display = isWindCatDist ? 'block' : 'none';
   if (isWindCatDist) _updateWindCatCycleOptions();
+  document.getElementById('indoor-vent-controls').style.display = isWindCatDist ? '' : 'none';
   // Show/hide DRI resampling toggle
   document.getElementById('dri-resample-wrap').style.display = ct === 'driving-rain' ? 'block' : 'none';
   // Show/hide solar distribution granularity control
@@ -2278,17 +2345,197 @@ function _buildWindCategoryDist(raw) {
     });
   });
 
-  return {
-    data: traceData,
-    layout: {
-      xaxis: {title: xTitle},
-      yaxis: {autorange:'reversed', title:'', automargin: true},
-      showlegend: series.length > 1,
-      barmode: 'group',
-      margin: {l: 10, r: 150, t: 30, b: 50},
-    },
-    total: grandTotal,
+  // Indoor ventilation overlay: vertical line segments + hatched fill via scatter on hidden y2 axis
+  let x2Max = 0.001;
+  const n = bands.length;
+
+  if (state.indoorVent && raw && raw.avgWind) {
+    const iv = state.indoorVent;
+    const speedArr = raw.avgWind;
+
+    function _ivMeanByBand(meshFactor) {
+      const sums = new Array(n).fill(0);
+      const cnts = new Array(n).fill(0);
+      speedArr.forEach(v => {
+        if (v == null) return;
+        for (let i = 0; i < n; i++) {
+          if (v >= bands[i].lo_kph && v < bands[i].hi_kph) {
+            let spd = _computeIndoorSpeedMs(v, iv);
+            if (meshFactor != null) spd *= meshFactor;
+            sums[i] += spd;
+            cnts[i]++;
+            break;
+          }
+        }
+      });
+      return sums.map((s, i) => cnts[i] > 0 ? Math.round(s / cnts[i] * 10000) / 10000 : null);
+    }
+
+    if (iv.mesh) {
+      const meansHi = _ivMeanByBand(0.50);
+      const meansLo = _ivMeanByBand(0.35);
+      const xFill = [], yFill = [], xHi = [], yHi = [], xLo = [], yLo = [];
+      for (let i = 0; i < n; i++) {
+        const hi = meansHi[i], lo = meansLo[i];
+        if (hi == null || lo == null) continue;
+        x2Max = Math.max(x2Max, hi);
+        xFill.push(lo, hi, hi, lo, lo, null);
+        yFill.push(i-0.42, i-0.42, i+0.42, i+0.42, i-0.42, null);
+        xHi.push(hi, hi, null);
+        yHi.push(i-0.42, i+0.42, null);
+        xLo.push(lo, lo, null);
+        yLo.push(i-0.42, i+0.42, null);
+      }
+      traceData.push({
+        type: 'scatter', mode: 'none', hoverinfo: 'skip', showlegend: false,
+        x: xFill, y: yFill, xaxis: 'x2', yaxis: 'y2',
+        fill: 'toself', fillcolor: 'rgba(44,160,44,0.08)',
+        fillpattern: {shape: '/', size: 6, fgcolor: 'rgba(44,160,44,0.55)', fillmode: 'overlay'},
+      });
+      traceData.push({
+        type: 'scatter', mode: 'lines', hoverinfo: 'skip', showlegend: false,
+        x: xHi, y: yHi, xaxis: 'x2', yaxis: 'y2',
+        line: {color: '#2ca02c', width: 2.5},
+      });
+      traceData.push({
+        type: 'scatter', mode: 'lines', hoverinfo: 'skip', showlegend: false,
+        x: xLo, y: yLo, xaxis: 'x2', yaxis: 'y2',
+        line: {color: '#2ca02c', width: 1.5, dash: 'dot'},
+      });
+      traceData.push({
+        type: 'scatter', mode: 'lines', name: 'Indoor, mesh — optimistic (m/s)',
+        x: [null], y: [null], yaxis: 'y2', xaxis: 'x2',
+        line: {color: '#2ca02c', width: 2.5}, showlegend: true,
+      });
+      traceData.push({
+        type: 'scatter', mode: 'lines', name: 'Indoor, mesh — conservative (m/s)',
+        x: [null], y: [null], yaxis: 'y2', xaxis: 'x2',
+        line: {color: '#2ca02c', width: 1.5, dash: 'dot'}, showlegend: true,
+      });
+    } else {
+      const meansNoMesh = _ivMeanByBand(null);
+      const xLine = [], yLine = [];
+      for (let i = 0; i < n; i++) {
+        const spd = meansNoMesh[i];
+        if (spd == null) continue;
+        x2Max = Math.max(x2Max, spd);
+        xLine.push(spd, spd, null);
+        yLine.push(i-0.42, i+0.42, null);
+      }
+      traceData.push({
+        type: 'scatter', mode: 'lines', hoverinfo: 'skip', showlegend: false,
+        x: xLine, y: yLine, xaxis: 'x2', yaxis: 'y2',
+        line: {color: '#d62728', width: 2.5},
+      });
+      traceData.push({
+        type: 'scatter', mode: 'lines', name: 'Indoor, no mesh (m/s)',
+        x: [null], y: [null], yaxis: 'y2', xaxis: 'x2',
+        line: {color: '#d62728', width: 2.5}, showlegend: true,
+      });
+    }
+  }
+
+  const layoutObj = {
+    xaxis: {title: xTitle},
+    yaxis: {autorange:'reversed', title:'', automargin: true},
+    showlegend: true,
+    barmode: 'group',
+    margin: {l: 10, r: 150, t: 30, b: 50},
   };
+  if (state.indoorVent) {
+    layoutObj.xaxis2 = {
+      title: 'Mean indoor air speed (m/s)',
+      side: 'top', overlaying: 'x',
+      showgrid: false, zeroline: false,
+      range: [0, x2Max * 1.3],
+      tickformat: '.3f',
+    };
+    layoutObj.yaxis2 = {
+      overlaying: 'y',
+      range: [n - 0.5, -0.5],
+      showticklabels: false, showgrid: false,
+      zeroline: false, showline: false, fixedrange: true,
+    };
+    layoutObj.margin = Object.assign({}, layoutObj.margin, {t: 55});
+  }
+  return {data: traceData, layout: layoutObj, total: grandTotal};
+}
+
+// ── Indoor Ventilation Calculator ─────────────────────────────────────────────
+// ΔCp values (inlet face minus leeward outlet face) from AIVC TN44 Table 3.5
+// (i) exposed, (ii) suburban, (iii) urban; low-rise buildings (up to 3 storeys).
+// Direct: Face 1 @0 deg vs Face 3 @0 deg.
+// 45 deg: Face 1 @45 deg vs adjacent Face 4 @45 deg.
+// Side-on: side Face 2 vs side Face 4 @0 deg wind (small differential).
+const _IV_DELTA_CP = {
+  exposed:  { direct: 1.20, angle45: 0.75, sideon: 0.30 },
+  suburban: { direct: 0.70, angle45: 0.45, sideon: 0.10 },
+  urban:    { direct: 0.45, angle45: 0.35, sideon: 0.05 },
+};
+
+function _computeIndoorSpeedMs(v_kph, iv) {
+  if (v_kph == null || v_kph <= 0) return 0;
+  const v_ms = v_kph / 3.6;
+  const dCp = (_IV_DELTA_CP[iv.shielding] || _IV_DELTA_CP.suburban)[iv.windDir] || 0.45;
+  const dP = dCp * 0.5 * 1.2 * v_ms * v_ms;
+  const Ao = Math.min(iv.inletArea, iv.outletArea);
+  const Q = 0.6 * Ao * Math.sqrt(2 * dP / 1.2);
+  return Q / (Math.sqrt(iv.floorArea) * iv.roomHeight);
+}
+
+function _readIndoorVentParams() {
+  const inletArea  = parseFloat(document.getElementById('iv-inlet-area').value);
+  const outletArea = parseFloat(document.getElementById('iv-outlet-area').value);
+  const floorArea  = parseFloat(document.getElementById('iv-floor-area').value);
+  const roomHeight = parseFloat(document.getElementById('iv-room-height').value);
+  const shielding  = document.getElementById('iv-shielding').value;
+  const windDir    = document.getElementById('iv-wind-dir').value;
+  const mesh       = document.getElementById('iv-mesh').checked;
+  const status     = document.getElementById('iv-status');
+  if (!inletArea || !outletArea || !floorArea || !roomHeight ||
+      inletArea <= 0 || outletArea <= 0 || floorArea <= 0 || roomHeight <= 0) {
+    if (status) status.textContent = 'Enter all values > 0.';
+    return null;
+  }
+  if (status) status.textContent = '';
+  return { inletArea, outletArea, floorArea, roomHeight, shielding, windDir, mesh };
+}
+
+function applyIndoorVent() {
+  const iv = _readIndoorVentParams();
+  if (!iv) return;
+  state.indoorVent = iv;
+  document.getElementById('iv-clear-btn').style.display = '';
+  const status = document.getElementById('iv-status');
+  if (status) {
+    let html = 'Overlay active';
+    if (ALL_DATA && ALL_DATA.raw && ALL_DATA.raw.avgWind) {
+      const spds = ALL_DATA.raw.avgWind
+        .filter(v => v != null && v > 0)
+        .map(v => _computeIndoorSpeedMs(v, iv))
+        .sort((a, b) => a - b);
+      if (spds.length) {
+        const p50 = spds[Math.floor(spds.length * 0.50)];
+        const p90 = spds[Math.floor(spds.length * 0.90)];
+        const mx  = spds[spds.length - 1];
+        const f = (v, factor) => (v * factor).toFixed(3);
+        const stats = iv.mesh
+          ? `Median ${f(p50,0.35)}–${f(p50,0.50)}&nbsp;m/s, p90 ${f(p90,0.35)}–${f(p90,0.50)}&nbsp;m/s, max ${f(mx,0.35)}–${f(mx,0.50)}&nbsp;m/s`
+          : `Median ${f(p50,1)}&nbsp;m/s, p90 ${f(p90,1)}&nbsp;m/s, max ${f(mx,1)}&nbsp;m/s`;
+        html += `<br><span style="font-size:10px;color:#555">${stats}</span>`;
+      }
+    }
+    status.innerHTML = html;
+  }
+  updatePlot();
+}
+
+function clearIndoorVent() {
+  state.indoorVent = null;
+  document.getElementById('iv-clear-btn').style.display = 'none';
+  const status = document.getElementById('iv-status');
+  if (status) status.textContent = '';
+  updatePlot();
 }
 
 function setWindCatSystem(sys) {
