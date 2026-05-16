@@ -16,6 +16,13 @@ LATITUDE = -7.065   # ARC ecovillage near Mkuranga
 LONGITUDE = 39.18
 SOLAR_CONSTANT = 1361  # W/m2
 
+# Magnetic declination for Mkuranga, TZ (-7.065°S, 39.18°E).
+# Source: NOAA World Magnetic Model (WMM-2025 / IGRF-13 secular variation).
+# Approximately -1.5° (1.5° westerly) for 2025-2026; annual change ~+0.1°/yr.
+# True bearing = Magnetic bearing + MAGNETIC_DECLINATION_DEG
+# Verify at: https://www.ngdc.noaa.gov/geomag/calculators/magcalc.shtml
+MAGNETIC_DECLINATION_DEG = -1.5
+
 # ── Beaufort Scale (WMO definition, classified in knots) ──────────────────────
 # The Beaufort scale is defined in knots. All other units are derived using the
 # exact conversion factors below to avoid boundary errors.
@@ -265,6 +272,12 @@ def load_weather_csv(csv_path):
                  "precip_total_mm", "precip_rate_mmh", "battery_v"]:
         df[col] = pd.to_numeric(df[col], errors="coerce")
     df["wind_dir"] = pd.to_numeric(df["wind_dir"], errors="coerce").astype("Int64")
+
+    # Convert magnetic bearing to true bearing.
+    # Omnisense sensor reports magnetic north; all wind analysis uses true north.
+    df["wind_dir"] = (
+        (df["wind_dir"].astype(float) + MAGNETIC_DECLINATION_DEG) % 360
+    ).round().astype("Int64")
 
     df = df.sort_values("timestamp").reset_index(drop=True)
     return df

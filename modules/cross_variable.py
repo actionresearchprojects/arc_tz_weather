@@ -170,6 +170,7 @@ def _build_driving_rain_index(xdf):
         "directionalDRI": dir_dri,
         "facadeDRI": facade_dri,
         "dominantDir": dominant_dir,
+        "note": "Wind directions corrected for magnetic declination (-1.5° westerly, WMM-2025).",
     }
 
 

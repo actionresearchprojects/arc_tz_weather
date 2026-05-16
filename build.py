@@ -425,6 +425,7 @@ body{font-family:'Ubuntu',sans-serif;font-size:13px;background:#f8f9fa;color:#33
 #bar-title{font-size:14px;font-weight:600;color:#222;white-space:nowrap;text-align:center;padding:0 8px;overflow:hidden;text-overflow:ellipsis}
 #time-bar-right{flex:1;display:flex;align-items:center;gap:8px;justify-content:flex-end;flex-wrap:wrap}
 #chart{flex:1;min-height:0}
+#chart-note{font-size:10px;color:#999;padding:2px 8px;min-height:0;font-style:italic}
 .section{display:flex;flex-direction:column;gap:2px}
 .section-title{font-weight:600;font-size:11px;color:#666;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em}
 select,button,input{font-family:inherit}
@@ -840,6 +841,7 @@ optgroup{font-weight:600;font-style:normal}
         <tbody id="rain-events-body"></tbody>
       </table>
     </div>
+    <div id="chart-note"></div>
   </div>
 </div>
 
@@ -2706,6 +2708,7 @@ function updatePlot() {
   const sel = document.getElementById('chart-select');
   const titleEl = document.getElementById('bar-title');
   titleEl.textContent = currentLang === 'sw' ? (chart.title_sw || chart.title) : chart.title;
+  document.getElementById('chart-note').textContent = chart.note || '';
 
   // If wind rose slider is active, delegate rendering to slider
   if (ct === 'wind-rose' && _wrSlider.on) {

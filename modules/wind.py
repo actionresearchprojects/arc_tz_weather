@@ -174,6 +174,7 @@ def _build_wind_rose(wdf, n_points):
         "data": traces,
         "layout": layout,
         "calmPct": calm_pct,
+        "note": "Wind directions corrected for magnetic declination (-1.5° westerly, WMM-2025).",
     }
 
 

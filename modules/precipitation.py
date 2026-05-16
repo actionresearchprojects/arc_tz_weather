@@ -413,4 +413,5 @@ def _build_rain_events(events):
         "layout": {},
         "events": events[:100],  # Limit for JSON size
         "isTable": True,
+        "note": "Wind directions corrected for magnetic declination (-1.5° westerly, WMM-2025).",
     }
