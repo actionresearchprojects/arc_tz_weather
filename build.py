@@ -2372,8 +2372,8 @@ function _buildWindCategoryDist(raw) {
     }
 
     if (iv.mesh) {
-      const meansHi = _ivMeanByBand(0.50);
-      const meansLo = _ivMeanByBand(0.35);
+      const meansHi = _ivMeanByBand(0.48);
+      const meansLo = _ivMeanByBand(0.36);
       const xFill = [], yFill = [], xHi = [], yHi = [], xLo = [], yLo = [];
       for (let i = 0; i < n; i++) {
         const hi = meansHi[i], lo = meansLo[i];
@@ -2520,7 +2520,7 @@ function applyIndoorVent() {
         const mx  = spds[spds.length - 1];
         const f = (v, factor) => (v * factor).toFixed(3);
         const stats = iv.mesh
-          ? `Median ${f(p50,0.35)}–${f(p50,0.50)}&nbsp;m/s, p90 ${f(p90,0.35)}–${f(p90,0.50)}&nbsp;m/s, max ${f(mx,0.35)}–${f(mx,0.50)}&nbsp;m/s`
+          ? `Median ${f(p50,0.36)}–${f(p50,0.48)}&nbsp;m/s, p90 ${f(p90,0.36)}–${f(p90,0.48)}&nbsp;m/s, max ${f(mx,0.36)}–${f(mx,0.48)}&nbsp;m/s`
           : `Median ${f(p50,1)}&nbsp;m/s, p90 ${f(p90,1)}&nbsp;m/s, max ${f(mx,1)}&nbsp;m/s`;
         html += `<br><span style="font-size:10px;color:#555">${stats}</span>`;
       }

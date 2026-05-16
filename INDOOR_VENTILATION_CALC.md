@@ -17,7 +17,7 @@ The calculator chains four equations to convert an outdoor wind speed into an es
 | 1. Wind pressure | `ΔP = ΔCp × ½ρv²` | AIVC TN44 (Orme et al. 1998), Ch. 3; also ASHRAE Fundamentals Ch. 16 | Bernoulli: moving air converts kinetic energy to pressure when it strikes a surface. ΔCp from TN44 Tables 3.5(i)-(iii): wind-tunnel-derived pressure coefficients for low-rise buildings under three shielding conditions. |
 | 2. Airflow rate | `Q = Cd × Ao × √(2ΔP/ρ)` | AIVC TN44 Ch. 3; EN 15242:2007 Annex B | Standard orifice-flow equation derived from Bernoulli. Cd = 0.6 is the accepted value for a sharp-edged rectangular opening (accounts for vena contracta and edge losses). |
 | 3. Indoor speed | `v_indoor = Q / (√A_floor × h)` | Continuity equation (conservation of mass); room geometry simplification | Divides the volumetric flow rate by the room cross-section area perpendicular to flow. Assumes square floor plan so width = √A_floor. |
-| 4. Mesh reduction | `v_final = v_indoor × f` where f = 0.35 to 0.50 | Von Seidlein et al. (2012), *Malaria Journal* 11:200 — verified primary source | Field measurements in East African housing found mesh cuts indoor air velocity by roughly 50-65% (transmission factors 35-50%). Exact values should be confirmed against the paper's data tables. |
+| 4. Mesh reduction | `v_final = v_indoor × f` where f = 0.36 to 0.48 | Von Seidlein et al. (2012), *Malaria Journal* 11:200, Table 1 and Figure 5B — verified primary source | Field: 52% mean reduction → multiplier 0.48. Wind tunnel (11 nets): 64% mean reduction → multiplier 0.36. Range reflects difference between real-life household conditions and controlled tunnel conditions. |
 
 ---
 
@@ -125,14 +125,14 @@ For example, a 25 m² room is treated as 5 m × 5 m. With a ceiling height of 3.
 
 Mosquito mesh substantially reduces airflow through openings. The reduction is applied as a multiplier to `v_indoor`:
 
-| Bound | Multiplier | Interpretation |
+| Bound | Multiplier | Source |
 |---|---|---|
-| Optimistic (upper bound) | 0.50 | 50% of the unobstructed indoor speed; corresponds to the more permeable end of measured mesh performance |
-| Conservative (lower bound) | 0.35 | 35% of the unobstructed indoor speed; 65% reduction; corresponds to the less permeable end |
+| Optimistic (upper bound) | 0.48 | Field measurement in 20 real households across Africa and Asia: mean 52% reduction in airflow (Table 1, von Seidlein et al. 2012) |
+| Conservative (lower bound) | 0.36 | Wind tunnel experiment with 11 mesh-sized bed nets: mean 64% reduction (range 55-71%) (Figure 5B, von Seidlein et al. 2012) |
 
-**Why these values:** The multipliers are derived from field measurements in von Seidlein et al. (2012) — "Airflow attenuation and bed net utilization: observations from Africa and Asia", *Malaria Journal* 11:200 — which reports indoor air speed measurements with and without mosquito mesh screens in East African housing. The paper is the primary verified source for the 50 to 65% velocity reduction range (transmission factors 35 to 50%) used here.
+**Why these values:** Von Seidlein et al. (2012) — "Airflow attenuation and bed net utilization: observations from Africa and Asia", *Malaria Journal* 11:200 — measured airflow with and without mosquito mesh under two conditions. In real household field settings (20 houses, 220 holes/inch² net), the mesh reduced airflow by 52% on average, leaving 48% of the unobstructed speed (multiplier 0.48). In controlled wind tunnel experiments with 11 different bed nets, the mean reduction was 64% (remaining 36%, multiplier 0.36), with a range of 55 to 71% reduction across net types.
 
-**Note on the specific values:** The bounds 0.35 and 0.50 represent the lower and upper ends of the measured transmission range. These should be confirmed against the specific data tables in the paper; if the reported values differ (for example if the paper gives 0.36 to 0.48, or 0.52 to 0.64 under different conditions), the implementation should be updated accordingly. Additional context on mesh aerodynamics is provided by Valera et al. (2006), Peña et al. (2016), and Flores-Velázquez et al. (2016), though those studies focus on agricultural greenhouse screens rather than housing mesh; see References.
+The two bounds therefore represent the difference between real-life household conditions (where airflow is omni-directional and the net is loosely draped) and the most controlled experimental conditions (unidirectional airflow, net held taut across the tunnel cross-section). For a fixed mosquito mesh screen in a window frame, performance likely falls somewhere between these two values depending on mesh density and fit.
 
 The two-bound approach reflects genuine variability: loosely fitted mesh with a coarser weave approaches the upper bound; tightly fitted, fine-aperture mesh approaches the lower bound. Worn or damaged mesh may transmit more air than either bound.
 
@@ -234,8 +234,8 @@ A custom category system allows the user to define their own threshold values in
 The indoor ventilation overlay shows, for each outdoor wind speed category, the mean indoor air speed (in m/s) calculated from all the actual measured outdoor wind readings that fall within that category. A vertical line or pair of lines is drawn at the horizontal position corresponding to that mean indoor speed.
 
 When mosquito mesh is enabled, two bounds are shown:
-- A solid line for the optimistic bound (50% transmission)
-- A dotted line for the conservative bound (35% transmission)
+- A solid line for the optimistic bound (48% transmission; field conditions)
+- A dotted line for the conservative bound (36% transmission; wind tunnel conditions)
 - A hatched green fill between the two bounds
 
 When no mesh is selected, a single line is shown.
@@ -259,10 +259,10 @@ The secondary x-axis at the top of the chart shows indoor air speed in m/s. This
 **Step 3:** Cross-section = √25 × 3.2 = 5 × 3.2 = 16 m². v_indoor = 2.09 / 16 = **0.131 m/s**
 
 **Step 4 (mesh):**
-- Optimistic: 0.131 × 0.50 = **0.065 m/s**
-- Conservative: 0.131 × 0.35 = **0.046 m/s**
+- Optimistic (field conditions, 52% reduction): 0.131 × 0.48 = **0.063 m/s**
+- Conservative (wind tunnel, 64% reduction): 0.131 × 0.36 = **0.047 m/s**
 
-At 10 km/h outdoor wind (a moderate reading for this site), a room with these characteristics would experience roughly 0.046 to 0.065 m/s of mean indoor air speed through mesh -- barely at the lower edge of perceptibility.
+At 10 km/h outdoor wind (a moderate reading for this site), a room with these characteristics would experience roughly 0.047 to 0.063 m/s of mean indoor air speed through mesh -- barely at the lower edge of perceptibility.
 
 ---
 
@@ -282,7 +282,7 @@ At 10 km/h outdoor wind (a moderate reading for this site), a room with these ch
 
 **7. Square floor plan assumed.** The formula treats the room as square in plan. A rectangular room with a narrow face toward the inlet window would have a smaller cross-section and higher actual mean speed; one with a wide face would have a larger cross-section and lower speed.
 
-**8. Mosquito mesh reduction is approximate.** The 0.35 to 0.50 range is derived from field measurements in East African housing, but mesh type, condition, installation quality, and opening aspect ratio all affect actual performance. The bounds should be treated as indicative, not precise.
+**8. Mosquito mesh reduction is approximate.** The 0.36 to 0.48 range is derived from von Seidlein et al. (2012), but those measurements used bed nets draped over sleeping areas, not fixed window mesh screens. Fixed mesh in a rigid frame may behave differently. Mesh density, condition, and installation quality all affect actual attenuation.
 
 **9. Wind direction not modelled.** The selected ΔCp is applied uniformly to all outdoor wind speed readings regardless of actual wind direction at each timestep. In reality, the ventilation effectiveness varies with wind direction relative to the window. The "wind direction to window" setting is a fixed orientation assumption applied across the entire dataset.
 
