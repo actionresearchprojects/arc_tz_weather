@@ -315,27 +315,27 @@ optgroup{font-weight:600;font-style:normal}
         <label class="cb-label" style="flex-direction:column;align-items:flex-start;gap:2px;margin-bottom:5px"
           title="The window that faces the wind, where air enters. Measure the open gap (width x height), not the frame. A typical bedroom window is roughly 0.5-1.5 m wide and 1-1.5 m tall.">
           <span style="font-size:10px;color:#555">Inlet window area (m&sup2;) <span style="color:#aaa;font-size:9px">(?)</span></span>
-          <input type="number" id="iv-inlet-area" min="0.01" max="20" step="0.01" value="1.0" style="width:80px;font-size:11px;border:1px solid #ccc;border-radius:3px;padding:2px 4px">
+          <input type="number" id="iv-inlet-area" min="0.01" max="20" step="0.01" value="1.0" onchange="autoUpdateIndoorVent()" style="width:80px;font-size:11px;border:1px solid #ccc;border-radius:3px;padding:2px 4px">
         </label>
         <label class="cb-label" style="flex-direction:column;align-items:flex-start;gap:2px;margin-bottom:5px"
           title="The window on the opposite side of the room where air exits. If this is smaller than the inlet, it limits how much air can flow through.">
           <span style="font-size:10px;color:#555">Outlet window area (m&sup2;) <span style="color:#aaa;font-size:9px">(?)</span></span>
-          <input type="number" id="iv-outlet-area" min="0.01" max="20" step="0.01" value="1.0" style="width:80px;font-size:11px;border:1px solid #ccc;border-radius:3px;padding:2px 4px">
+          <input type="number" id="iv-outlet-area" min="0.01" max="20" step="0.01" value="1.0" onchange="autoUpdateIndoorVent()" style="width:80px;font-size:11px;border:1px solid #ccc;border-radius:3px;padding:2px 4px">
         </label>
         <label class="cb-label" style="flex-direction:column;align-items:flex-start;gap:2px;margin-bottom:5px"
           title="Length x width of the room. A bigger room feels less breezy for the same outdoor wind, because the same amount of air is spread over more space. Example: 4 m x 5 m = 20 m2.">
           <span style="font-size:10px;color:#555">Room floor area (m&sup2;) <span style="color:#aaa;font-size:9px">(?)</span></span>
-          <input type="number" id="iv-floor-area" min="1" max="500" step="0.5" value="20" style="width:80px;font-size:11px;border:1px solid #ccc;border-radius:3px;padding:2px 4px">
+          <input type="number" id="iv-floor-area" min="1" max="500" step="0.5" value="20" onchange="autoUpdateIndoorVent()" style="width:80px;font-size:11px;border:1px solid #ccc;border-radius:3px;padding:2px 4px">
         </label>
         <label class="cb-label" style="flex-direction:column;align-items:flex-start;gap:2px;margin-bottom:5px"
           title="Floor to ceiling height. Taller rooms feel less breezy because the airflow spreads over more space from top to bottom.">
           <span style="font-size:10px;color:#555">Room height (m) <span style="color:#aaa;font-size:9px">(?)</span></span>
-          <input type="number" id="iv-room-height" min="1.5" max="10" step="0.1" value="3.0" style="width:80px;font-size:11px;border:1px solid #ccc;border-radius:3px;padding:2px 4px">
+          <input type="number" id="iv-room-height" min="1.5" max="10" step="0.1" value="3.0" onchange="autoUpdateIndoorVent()" style="width:80px;font-size:11px;border:1px solid #ccc;border-radius:3px;padding:2px 4px">
         </label>
         <label class="cb-label" style="flex-direction:column;align-items:flex-start;gap:2px;margin-bottom:5px"
           title="How exposed the building is to wind. Exposed = open land with no nearby buildings or trees. Suburban = some nearby buildings or trees. Urban = closely surrounded by buildings of similar height.">
           <span style="font-size:10px;color:#555">Shielding condition <span style="color:#aaa;font-size:9px">(?)</span></span>
-          <select id="iv-shielding" style="font-size:11px;border:1px solid #ccc;border-radius:3px;padding:2px 4px;width:130px">
+          <select id="iv-shielding" onchange="autoUpdateIndoorVent()" style="font-size:11px;border:1px solid #ccc;border-radius:3px;padding:2px 4px;width:130px">
             <option value="exposed">Exposed (open site)</option>
             <option value="suburban" selected>Suburban</option>
             <option value="urban">Urban (sheltered)</option>
@@ -344,7 +344,7 @@ optgroup{font-weight:600;font-style:normal}
         <label class="cb-label" style="flex-direction:column;align-items:flex-start;gap:2px;margin-bottom:5px"
           title="Roughly which direction the wind hits the inlet window. Direct means straight through; side-on means wind blows across the face of the building. If you are unsure, Diagonal is a reasonable guess.">
           <span style="font-size:10px;color:#555">Wind direction to window <span style="color:#aaa;font-size:9px">(?)</span></span>
-          <select id="iv-wind-dir" style="font-size:11px;border:1px solid #ccc;border-radius:3px;padding:2px 4px;width:130px">
+          <select id="iv-wind-dir" onchange="autoUpdateIndoorVent()" style="font-size:11px;border:1px solid #ccc;border-radius:3px;padding:2px 4px;width:130px">
             <option value="direct">Direct (0&#176;)</option>
             <option value="angle45" selected>Diagonal (45&#176;)</option>
             <option value="sideon">Side-on (90&#176;)</option>
@@ -357,7 +357,7 @@ optgroup{font-weight:600;font-style:normal}
               <select id="iv-layer-type" style="font-size:10px;padding:1px 3px;border:1px solid #ccc;border-radius:3px">
                 <option value="mosquito-mesh">Mosquito Mesh</option>
                 <option value="perforated-screen">Perforated Screen</option>
-                <option value="ventilation-blind">Ventilation Blind</option>
+                <option value="venetian-blind">Venetian Blind</option>
               </select>
               <button onclick="addReductionLayer()" style="font-size:10px;padding:1px 6px;border:1px solid #4a90d9;border-radius:3px;cursor:pointer;background:#e8f0ff;color:#1a4a8a">Add</button>
             </div>
@@ -378,8 +378,7 @@ optgroup{font-weight:600;font-style:normal}
           </div>
         </details>
         <div style="display:flex;gap:4px">
-          <button onclick="applyIndoorVent()" style="flex:1;font-size:11px;padding:3px 6px;border:1px solid #4a90d9;border-radius:4px;cursor:pointer;background:#e8f0ff;color:#1a4a8a">Apply</button>
-          <button onclick="clearIndoorVent()" id="iv-clear-btn" style="display:none;font-size:11px;padding:3px 6px;border:1px solid #ccc;border-radius:4px;cursor:pointer;background:#f5f5f5;color:#666">Clear</button>
+          <button onclick="toggleIndoorVent()" id="iv-toggle-btn" style="flex:1;font-size:11px;padding:3px 6px;border:1px solid #4a90d9;border-radius:4px;cursor:pointer;background:#e8f0ff;color:#1a4a8a">Apply</button>
         </div>
         <div id="iv-status" style="font-size:10px;color:#888;margin-top:4px"></div>
       </div>
@@ -2643,8 +2642,8 @@ const _REDUCTION_LAYERS = {
     pessimistic: 0.45, // 55% reduction → 45% transmission
     empiricallySupported: false
   },
-  'ventilation-blind': {
-    name: 'Ventilation Blind',
+  'venetian-blind': {
+    name: 'Venetian Blind',
     // Indicative values for partially closed blind
     optimistic: 0.70, // 30% reduction → 70% transmission
     pessimistic: 0.50, // 50% reduction → 50% transmission
@@ -2860,11 +2859,36 @@ function _readIndoorVentParams() {
   return { inletArea, outletArea, floorArea, roomHeight, shielding, windDir, layers, reductions };
 }
 
+function autoUpdateIndoorVent() {
+  // Auto-update if already applied
+  if (state.indoorVent) {
+    applyIndoorVent();
+  }
+}
+
+function toggleIndoorVent() {
+  const toggleBtn = document.getElementById('iv-toggle-btn');
+  if (state.indoorVent) {
+    // Currently applied, so remove it
+    clearIndoorVent();
+    toggleBtn.textContent = 'Apply';
+    toggleBtn.style.background = '#e8f0ff';
+    toggleBtn.style.color = '#1a4a8a';
+    toggleBtn.style.borderColor = '#4a90d9';
+  } else {
+    // Not applied, so apply it
+    applyIndoorVent();
+    toggleBtn.textContent = 'Remove';
+    toggleBtn.style.background = '#f2dede';
+    toggleBtn.style.color = '#a94442';
+    toggleBtn.style.borderColor = '#d9534f';
+  }
+}
+
 function applyIndoorVent() {
   const iv = _readIndoorVentParams();
   if (!iv) return;
   state.indoorVent = iv;
-  document.getElementById('iv-clear-btn').style.display = '';
   const status = document.getElementById('iv-status');
   if (status) {
     let html = 'Overlay active';
@@ -2891,7 +2915,6 @@ function applyIndoorVent() {
 
 function clearIndoorVent() {
   state.indoorVent = null;
-  document.getElementById('iv-clear-btn').style.display = 'none';
   const status = document.getElementById('iv-status');
   if (status) status.textContent = '';
   updatePlot();
