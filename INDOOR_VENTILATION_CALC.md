@@ -95,7 +95,7 @@ Where:
 
 **Why Cd = 0.6:** When air flows through a sharp-edged rectangular opening (a window frame), the flow contracts as it passes through (the "vena contracta" effect) and there are viscous losses at the edges. Measured values of Cd for rectangular openings in buildings consistently fall in the range 0.57 to 0.65. The value 0.6 is the standard in building ventilation engineering (used in EN 15242, AIVC TN44, and ASHRAE Fundamentals) and is appropriate for a window without any internal obstruction. The mosquito mesh, if present, is handled separately in Step 4 rather than by reducing Cd, because the mesh effect is a multiplier on the final indoor speed and is derived from empirical measurements rather than from orifice theory.
 
-**Effective area Ao:** The current implementation uses `Ao = min(A_inlet, A_outlet)`. This is a conservative simplification: the smaller of the two openings is the primary bottleneck. The physically correct formula for two openings in series is `1/Aeff² = 1/Ainlet² + 1/Aoutlet²`, which gives a somewhat lower effective area when the two openings differ significantly in size. For example, with a 2 m² inlet and a 1.5 m² outlet, the min formula gives 1.5 m² while the series formula gives 1.17 m². The series correction is noted as a planned improvement.
+**Effective area Ao:** The implementation uses the series correction formula `1/Aeff² = 1/Ainlet² + 1/Aoutlet²`, which rearranges to `Aeff = (Ainlet × Aoutlet) / √(Ainlet² + Aoutlet²)`. This is the physically correct result for two orifices in series: each opening imposes an independent pressure drop, and the combined resistance is the sum of the individual resistances. For equal openings it reduces to Ao = A. For unequal openings it gives a lower effective area than the simpler `min(Ainlet, Aoutlet)` approach. For example, with a 2 m² inlet and a 1.5 m² outlet: Aeff = (2.0 × 1.5) / √(4.0 + 2.25) = 3.0 / 2.5 = **1.2 m²**.
 
 ---
 
@@ -267,15 +267,15 @@ The secondary x-axis at the top of the chart shows indoor air speed in m/s. This
 
 **Step 1:** ΔCp (suburban, direct) = 0.70. ΔP = 0.70 × 0.5 × 1.2 × 2.78² = 0.70 × 4.63 = **3.24 Pa**
 
-**Step 2:** Ao = min(2.0, 1.5) = 1.5 m². Q = 0.6 × 1.5 × √(2 × 3.24 / 1.2) = 0.9 × √5.40 = 0.9 × 2.32 = **2.09 m³/s**
+**Step 2:** Aeff = (2.0 × 1.5) / √(2.0² + 1.5²) = 3.0 / √6.25 = 3.0 / 2.5 = 1.2 m². Q = 0.6 × 1.2 × √(2 × 3.24 / 1.2) = 0.72 × √5.40 = 0.72 × 2.32 = **1.67 m³/s**
 
-**Step 3:** Cross-section = √25 × 3.2 = 5 × 3.2 = 16 m². v_indoor = 2.09 / 16 = **0.131 m/s**
+**Step 3:** Cross-section = √25 × 3.2 = 5 × 3.2 = 16 m². v_indoor = 1.67 / 16 = **0.104 m/s**
 
 **Step 4 (layers):** Assuming mosquito mesh + perforated screen are active:
-- Optimistic: 0.131 × 0.48 × 0.65 = **0.041 m/s**
-- Conservative: 0.131 × 0.36 × 0.45 = **0.021 m/s**
+- Optimistic: 0.104 × 0.48 × 0.65 = **0.032 m/s**
+- Conservative: 0.104 × 0.36 × 0.45 = **0.017 m/s**
 
-At 10 km/h outdoor wind (a moderate reading for this site), a room with these characteristics and two reduction layers would experience roughly 0.021 to 0.041 m/s of mean indoor air speed — well below the 0.1 m/s perceptibility threshold.
+At 10 km/h outdoor wind (a moderate reading for this site), a room with these characteristics and two reduction layers would experience roughly 0.017 to 0.032 m/s of mean indoor air speed — well below the 0.1 m/s perceptibility threshold.
 
 ---
 
@@ -283,25 +283,23 @@ At 10 km/h outdoor wind (a moderate reading for this site), a room with these ch
 
 **1. Single-zone, single-opening model.** The calculation assumes simple cross-ventilation: air enters through one opening and exits through another in steady state. Real buildings have multiple openings, corridors, internal partitions, and complex flow paths that this model cannot represent.
 
-**2. Series opening correction not yet implemented.** The current implementation uses `Ao = min(A_inlet, A_outlet)` as the effective area. The correct formula for two openings in series is `1/Aeff² = 1/Ainlet² + 1/Aoutlet²`, which gives a lower effective area when the two openings differ in size. This will be added in a subsequent update and will generally reduce estimated airflow slightly.
+**2. Mean wind speed, not instantaneous.** The outdoor wind speed data is a 5-minute average. Real ventilation is driven by fluctuating, gusty wind; instantaneous indoor air speed varies considerably around the calculated mean. The model gives a time-averaged estimate only.
 
-**3. Mean wind speed, not instantaneous.** The outdoor wind speed data is a 5-minute average. Real ventilation is driven by fluctuating, gusty wind; instantaneous indoor air speed varies considerably around the calculated mean. The model gives a time-averaged estimate only.
+**3. No wind profile correction.** The calculation uses the measured wind speed at the 10 m station height directly, without adjusting for the difference between 10 m and the actual building height. For a single-storey building, this overestimates the wind at eave height by a factor that depends on terrain roughness (typically 10 to 20%). TN44 Section 3.2.1 provides correction procedures that are not implemented here.
 
-**4. No wind profile correction.** The calculation uses the measured wind speed at the 10 m station height directly, without adjusting for the difference between 10 m and the actual building height. For a single-storey building, this overestimates the wind at eave height by a factor that depends on terrain roughness (typically 10 to 20%). TN44 Section 3.2.1 provides correction procedures that are not implemented here.
+**4. No thermal buoyancy.** The model is wind-driven only. In practice, temperature differences between inside and outside also drive airflow through the stack effect. In the daytime tropical climate of the ARC site, wind tends to dominate; but at night or in calm conditions, stack ventilation may contribute meaningfully. Including the stack effect would require temperature data at every timestep.
 
-**5. No thermal buoyancy.** The model is wind-driven only. In practice, temperature differences between inside and outside also drive airflow through the stack effect. In the daytime tropical climate of the ARC site, wind tends to dominate; but at night or in calm conditions, stack ventilation may contribute meaningfully. Including the stack effect would require temperature data at every timestep.
+**5. Cp values are for standard low-rise geometry.** The TN44 tables assume a rectangular building up to 3 storeys with a 1:1 plan ratio. Buildings with very different proportions, complex plan shapes, or significant roof overhangs will have different Cp distributions.
 
-**6. Cp values are for standard low-rise geometry.** The TN44 tables assume a rectangular building up to 3 storeys with a 1:1 plan ratio. Buildings with very different proportions, complex plan shapes, or significant roof overhangs will have different Cp distributions.
+**6. Square floor plan assumed.** The formula treats the room as square in plan. A rectangular room with a narrow face toward the inlet window would have a smaller cross-section and higher actual mean speed; one with a wide face would have a larger cross-section and lower speed.
 
-**7. Square floor plan assumed.** The formula treats the room as square in plan. A rectangular room with a narrow face toward the inlet window would have a smaller cross-section and higher actual mean speed; one with a wide face would have a larger cross-section and lower speed.
+**7. Layer reduction factors have varying empirical support.** Mosquito mesh values (0.36–0.48) are derived from von Seidlein et al. (2012), but those measurements used bed nets draped over sleeping areas, not fixed window mesh screens. Values for perforated screens and ventilation blinds are indicative only and require empirical validation. Layer density, condition, installation quality, and interaction effects all affect actual attenuation.
 
-**8. Layer reduction factors have varying empirical support.** Mosquito mesh values (0.36–0.48) are derived from von Seidlein et al. (2012), but those measurements used bed nets draped over sleeping areas, not fixed window mesh screens. Values for perforated screens and ventilation blinds are indicative only and require empirical validation. Layer density, condition, installation quality, and interaction effects all affect actual attenuation.
+**8. Wind direction not modelled.** The selected ΔCp is applied uniformly to all outdoor wind speed readings regardless of actual wind direction at each timestep. In reality, the ventilation effectiveness varies with wind direction relative to the window. The "wind direction to window" setting is a fixed orientation assumption applied across the entire dataset.
 
-**9. Wind direction not modelled.** The selected ΔCp is applied uniformly to all outdoor wind speed readings regardless of actual wind direction at each timestep. In reality, the ventilation effectiveness varies with wind direction relative to the window. The "wind direction to window" setting is a fixed orientation assumption applied across the entire dataset.
+**9. Calculated value is a cross-section mean.** The indoor air speed is the mean across the room cross-section perpendicular to flow. Local speeds near the window can be several times higher; local speeds in corners and behind partitions may be near zero. Occupant experience depends strongly on position within the room.
 
-**10. Calculated value is a cross-section mean.** The indoor air speed is the mean across the room cross-section perpendicular to flow. Local speeds near the window can be several times higher; local speeds in corners and behind partitions may be near zero. Occupant experience depends strongly on position within the room.
-
-**11. Layer ordering assumes series arrangement.** The calculation applies reduction factors sequentially in the order layers are added, assuming each layer encounters the reduced airflow from upstream layers. In reality, layer interaction effects, parallel flow paths, and non-uniform obstruction distributions may alter the total reduction from simple multiplicative compounding.
+**10. Layer ordering assumes series arrangement.** The calculation applies reduction factors sequentially in the order layers are added, assuming each layer encounters the reduced airflow from upstream layers. In reality, layer interaction effects, parallel flow paths, and non-uniform obstruction distributions may alter the total reduction from simple multiplicative compounding.
 
 ---
 

@@ -2628,7 +2628,7 @@ function _computeIndoorSpeedMs(v_kph, iv) {
   const v_ms = v_kph / 3.6;
   const dCp = (_IV_DELTA_CP[iv.shielding] || _IV_DELTA_CP.suburban)[iv.windDir] || 0.45;
   const dP = dCp * 0.5 * 1.2 * v_ms * v_ms;
-  const Ao = Math.min(iv.inletArea, iv.outletArea);
+  const Ao = (iv.inletArea * iv.outletArea) / Math.sqrt(iv.inletArea ** 2 + iv.outletArea ** 2);
   const Q = 0.6 * Ao * Math.sqrt(2 * dP / 1.2);
   return Q / (Math.sqrt(iv.floorArea) * iv.roomHeight);
 }
