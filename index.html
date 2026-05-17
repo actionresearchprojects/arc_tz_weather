@@ -2522,8 +2522,11 @@ function _buildWindCategoryDist(raw) {
     }
 
     if (iv.layers.length > 0) {
+      console.log('Using reduction factors - opt:', iv.reductions.optimistic, 'pess:', iv.reductions.pessimistic);
       const meansHi = _ivMeanByBand(iv.reductions.optimistic);
       const meansLo = _ivMeanByBand(iv.reductions.pessimistic);
+      console.log('Chart data - meansHi:', meansHi);
+      console.log('Chart data - meansLo:', meansLo);
       const xFill = [], yFill = [], xHi = [], yHi = [], xLo = [], yLo = [];
       for (let i = 0; i < n; i++) {
         const hi = meansHi[i], lo = meansLo[i];
