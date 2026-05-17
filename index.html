@@ -2675,64 +2675,6 @@ function clearIndoorVent() {
   updatePlot();
 }
 
-// ── Indoor Ventilation Calculator ─────────────────────────────────────────────
-// ΔCp values (inlet face minus leeward outlet face) from AIVC TN44 Table 3.5
-// (i) exposed, (ii) suburban, (iii) urban; low-rise buildings (up to 3 storeys).
-// Direct: Face 1 @0 deg vs Face 3 @0 deg.
-// 45 deg: Face 1 @45 deg vs adjacent Face 4 @45 deg.
-// Side-on: side Face 2 vs side Face 4 @0 deg wind (small differential).
-const _IV_DELTA_CP = {
-  exposed:  { direct: 1.20, angle45: 0.75, sideon: 0.30 },
-  suburban: { direct: 0.70, angle45: 0.45, sideon: 0.10 },
-  urban:    { direct: 0.45, angle45: 0.35, sideon: 0.05 },
-};
-
-function _computeIndoorSpeedMs(v_kph, iv) {
-  if (v_kph == null || v_kph <= 0) return 0;
-  const v_ms = v_kph / 3.6;
-  const dCp = (_IV_DELTA_CP[iv.shielding] || _IV_DELTA_CP.suburban)[iv.windDir] || 0.45;
-  const dP = dCp * 0.5 * 1.2 * v_ms * v_ms;
-  const Ao = Math.min(iv.inletArea, iv.outletArea);
-  const Q = 0.6 * Ao * Math.sqrt(2 * dP / 1.2);
-  return Q / (iv.floorArea * iv.roomHeight);
-}
-
-function _readIndoorVentParams() {
-  const inletArea  = parseFloat(document.getElementById('iv-inlet-area').value);
-  const outletArea = parseFloat(document.getElementById('iv-outlet-area').value);
-  const floorArea  = parseFloat(document.getElementById('iv-floor-area').value);
-  const roomHeight = parseFloat(document.getElementById('iv-room-height').value);
-  const shielding  = document.getElementById('iv-shielding').value;
-  const windDir    = document.getElementById('iv-wind-dir').value;
-  const mesh       = document.getElementById('iv-mesh').checked;
-  const status     = document.getElementById('iv-status');
-  if (!inletArea || !outletArea || !floorArea || !roomHeight ||
-      inletArea <= 0 || outletArea <= 0 || floorArea <= 0 || roomHeight <= 0) {
-    if (status) status.textContent = 'Enter all values > 0.';
-    return null;
-  }
-  if (status) status.textContent = '';
-  return { inletArea, outletArea, floorArea, roomHeight, shielding, windDir, mesh };
-}
-
-function applyIndoorVent() {
-  const iv = _readIndoorVentParams();
-  if (!iv) return;
-  state.indoorVent = iv;
-  document.getElementById('iv-clear-btn').style.display = '';
-  const status = document.getElementById('iv-status');
-  if (status) status.textContent = 'Overlay active';
-  updatePlot();
-}
-
-function clearIndoorVent() {
-  state.indoorVent = null;
-  document.getElementById('iv-clear-btn').style.display = 'none';
-  const status = document.getElementById('iv-status');
-  if (status) status.textContent = '';
-  updatePlot();
-}
-
 function setWindCatSystem(sys) {
   state.windCatSystem = sys;
   const sel = document.getElementById('wind-cat-system');
