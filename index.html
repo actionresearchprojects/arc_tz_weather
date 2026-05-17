@@ -2668,17 +2668,22 @@ function addReductionLayer() {
 
   layerDiv.innerHTML = `
     <span style="flex:1;color:#333">${layerDef.name}</span>
-    <button onclick="toggleLayer('${layerId}')" id="${layerId}-mute"
-            style="font-size:9px;padding:1px 4px;border:1px solid #666;border-radius:2px;cursor:pointer;background:#fff;color:#666;min-width:40px">Mute</button>
+    <button onclick="muteLayer('${layerId}')" id="${layerId}-mute"
+            style="font-size:9px;padding:1px 4px;border:1px solid #666;border-radius:2px;cursor:pointer;background:#fff;color:#666;min-width:35px">Mute</button>
+    <button onclick="soloLayer('${layerId}')" id="${layerId}-solo"
+            style="font-size:9px;padding:1px 4px;border:1px solid #f39c12;border-radius:2px;cursor:pointer;background:#fff;color:#f39c12;min-width:35px">Solo</button>
     <button onclick="removeLayer('${layerId}')"
-            style="font-size:9px;padding:1px 4px;border:1px solid #d9534f;border-radius:2px;cursor:pointer;background:#f2dede;color:#a94442">Remove</button>
+            style="font-size:9px;padding:1px 4px;border:1px solid #d9534f;border-radius:2px;cursor:pointer;background:#f2dede;color:#a94442;min-width:35px">Remove</button>
   `;
 
   // Store layer data
   layerDiv.dataset.layerType = layerType;
-  layerDiv.dataset.active = 'true';
+  layerDiv.dataset.muted = 'false';
+  layerDiv.dataset.soloed = 'false';
 
   container.appendChild(layerDiv);
+
+  updateLayerVisuals();
 
   // Auto-apply if there are parameters set
   if (state.indoorVent) {
@@ -2690,6 +2695,7 @@ function removeLayer(layerId) {
   const layerElement = document.getElementById(layerId);
   if (layerElement) {
     layerElement.remove();
+    updateLayerVisuals();
     // Auto-apply if there are parameters set
     if (state.indoorVent) {
       applyIndoorVent();
@@ -2697,30 +2703,30 @@ function removeLayer(layerId) {
   }
 }
 
-function toggleLayer(layerId) {
+function muteLayer(layerId) {
   const layerElement = document.getElementById(layerId);
   const muteButton = document.getElementById(`${layerId}-mute`);
   if (!layerElement || !muteButton) return;
 
-  const isActive = layerElement.dataset.active === 'true';
+  const isMuted = layerElement.dataset.muted === 'true';
 
-  if (isActive) {
-    // Mute the layer
-    layerElement.dataset.active = 'false';
-    layerElement.style.opacity = '0.5';
-    muteButton.textContent = 'Solo';
-    muteButton.style.background = '#dff0d8';
-    muteButton.style.color = '#3c763d';
-    muteButton.style.borderColor = '#3c763d';
-  } else {
+  if (isMuted) {
     // Unmute the layer
-    layerElement.dataset.active = 'true';
-    layerElement.style.opacity = '1';
-    muteButton.textContent = 'Mute';
+    layerElement.dataset.muted = 'false';
     muteButton.style.background = '#fff';
     muteButton.style.color = '#666';
     muteButton.style.borderColor = '#666';
+    muteButton.textContent = 'Mute';
+  } else {
+    // Mute the layer
+    layerElement.dataset.muted = 'true';
+    muteButton.style.background = '#d9534f';
+    muteButton.style.color = '#fff';
+    muteButton.style.borderColor = '#d9534f';
+    muteButton.textContent = 'Muted';
   }
+
+  updateLayerVisuals();
 
   // Auto-apply if there are parameters set
   if (state.indoorVent) {
@@ -2728,10 +2734,76 @@ function toggleLayer(layerId) {
   }
 }
 
+function soloLayer(layerId) {
+  const layerElement = document.getElementById(layerId);
+  const soloButton = document.getElementById(`${layerId}-solo`);
+  if (!layerElement || !soloButton) return;
+
+  const isSoloed = layerElement.dataset.soloed === 'true';
+
+  if (isSoloed) {
+    // Unsolo the layer
+    layerElement.dataset.soloed = 'false';
+    soloButton.style.background = '#fff';
+    soloButton.style.color = '#f39c12';
+    soloButton.style.borderColor = '#f39c12';
+    soloButton.textContent = 'Solo';
+  } else {
+    // Solo the layer
+    layerElement.dataset.soloed = 'true';
+    soloButton.style.background = '#f39c12';
+    soloButton.style.color = '#fff';
+    soloButton.style.borderColor = '#f39c12';
+    soloButton.textContent = 'Solo\'d';
+  }
+
+  updateLayerVisuals();
+
+  // Auto-apply if there are parameters set
+  if (state.indoorVent) {
+    applyIndoorVent();
+  }
+}
+
+function updateLayerVisuals() {
+  const container = document.getElementById('iv-layers-container');
+  const layers = Array.from(container.children);
+  const anySoloed = layers.some(layer => layer.dataset.soloed === 'true');
+
+  layers.forEach(layer => {
+    const isActive = getLayerActiveState(layer, anySoloed);
+    layer.style.opacity = isActive ? '1' : '0.3';
+  });
+}
+
+function getLayerActiveState(layerElement, anySoloed) {
+  if (anySoloed) {
+    // If any layers are soloed, only soloed layers are active
+    return layerElement.dataset.soloed === 'true';
+  } else {
+    // If no layers are soloed, non-muted layers are active
+    return layerElement.dataset.muted === 'false';
+  }
+}
+
 function getActiveLayers() {
   const container = document.getElementById('iv-layers-container');
-  const layers = Array.from(container.children).filter(layer => layer.dataset.active === 'true');
-  return layers.map(layer => _REDUCTION_LAYERS[layer.dataset.layerType]);
+  const layers = Array.from(container.children);
+
+  // Check if any layers are soloed
+  const anySoloed = layers.some(layer => layer.dataset.soloed === 'true');
+
+  const activeLayers = layers.filter(layer => {
+    if (anySoloed) {
+      // If any layers are soloed, only soloed layers are active
+      return layer.dataset.soloed === 'true';
+    } else {
+      // If no layers are soloed, non-muted layers are active
+      return layer.dataset.muted === 'false';
+    }
+  });
+
+  return activeLayers.map(layer => _REDUCTION_LAYERS[layer.dataset.layerType]);
 }
 
 function computeCompoundReduction() {
