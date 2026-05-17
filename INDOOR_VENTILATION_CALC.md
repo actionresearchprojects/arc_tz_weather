@@ -17,7 +17,7 @@ The calculator chains four equations to convert an outdoor wind speed into an es
 | 1. Wind pressure | `ΔP = ΔCp × ½ρv²` | AIVC TN44 (Orme et al. 1998), Ch. 3; also ASHRAE Fundamentals Ch. 16 | Bernoulli: moving air converts kinetic energy to pressure when it strikes a surface. ΔCp from TN44 Tables 3.5(i)-(iii): wind-tunnel-derived pressure coefficients for low-rise buildings under three shielding conditions. |
 | 2. Airflow rate | `Q = Cd × Ao × √(2ΔP/ρ)` | AIVC TN44 Ch. 3; EN 15242:2007 Annex B | Standard orifice-flow equation derived from Bernoulli. Cd = 0.6 is the accepted value for a sharp-edged rectangular opening (accounts for vena contracta and edge losses). |
 | 3. Indoor speed | `v_indoor = Q / (√A_floor × h)` | Continuity equation (conservation of mass); room geometry simplification | Divides the volumetric flow rate by the room cross-section area perpendicular to flow. Assumes square floor plan so width = √A_floor. |
-| 4. Mesh reduction | `v_final = v_indoor × f` where f = 0.36 to 0.48 | Von Seidlein et al. (2012), *Malaria Journal* 11:200, Table 1 and Figure 5B — verified primary source | Field: 52% mean reduction → multiplier 0.48. Wind tunnel (11 nets): 64% mean reduction → multiplier 0.36. Range reflects difference between real-life household conditions and controlled tunnel conditions. |
+| 4. Layer reduction | `v_final = v_indoor × f₁ × f₂ × ... × fₙ` | Multiple reduction layers applied sequentially | Each active layer applies its reduction factor to the result of the previous layer, not to the original indoor speed. Factors compound multiplicatively rather than additively. |
 
 ---
 
@@ -121,22 +121,35 @@ For example, a 25 m² room is treated as 5 m × 5 m. With a ceiling height of 3.
 
 ---
 
-### Step 4: Mesh reduction (if mosquito mesh is present)
+### Step 4: Multi-layer reduction system
 
-Mosquito mesh substantially reduces airflow through openings. The reduction is applied as a multiplier to `v_indoor`:
+Multiple reduction layers can be applied sequentially to model the cumulative effect of different airflow-reducing elements such as mosquito mesh, perforated screens, and ventilation blinds. Each layer's reduction is applied multiplicatively to the result of the previous layer, not to the original outdoor speed.
 
-| Bound | Multiplier | Source |
-|---|---|---|
-| Optimistic (upper bound) | 0.48 | Field measurement in 20 real households across Africa and Asia: mean 52% reduction in airflow (Table 1, von Seidlein et al. 2012) |
-| Conservative (lower bound) | 0.36 | Wind tunnel experiment with 11 mesh-sized bed nets: mean 64% reduction (range 55-71%) (Figure 5B, von Seidlein et al. 2012) |
+**Compounding logic:** If mosquito mesh reduces airflow by 52–64% (multiplier 0.48–0.36) and a perforated screen reduces by an additional 35–55% (multiplier 0.65–0.45), the combined effect is:
 
-**Why these values:** Von Seidlein et al. (2012) — "Airflow attenuation and bed net utilization: observations from Africa and Asia", *Malaria Journal* 11:200 — measured airflow with and without mosquito mesh under two conditions. In real household field settings (20 houses, 220 holes/inch² net), the mesh reduced airflow by 52% on average, leaving 48% of the unobstructed speed (multiplier 0.48). In controlled wind tunnel experiments with 11 different bed nets, the mean reduction was 64% (remaining 36%, multiplier 0.36), with a range of 55 to 71% reduction across net types.
+`v_final = v_indoor × 0.48 × 0.65 = v_indoor × 0.312` (optimistic)  
+`v_final = v_indoor × 0.36 × 0.45 = v_indoor × 0.162` (conservative)
 
-The two bounds therefore represent the difference between real-life household conditions (where airflow is omni-directional and the net is loosely draped) and the most controlled experimental conditions (unidirectional airflow, net held taut across the tunnel cross-section). For a fixed mosquito mesh screen in a window frame, performance likely falls somewhere between these two values depending on mesh density and fit.
+This approach reflects the physical reality that each obstruction reduces the already-reduced airflow from upstream layers.
 
-The two-bound approach reflects genuine variability: loosely fitted mesh with a coarser weave approaches the upper bound; tightly fitted, fine-aperture mesh approaches the lower bound. Worn or damaged mesh may transmit more air than either bound.
+#### Supported reduction layers
 
-If no mesh is present, a single line is shown with no reduction applied (multiplier = 1.0).
+| Layer Type | Optimistic | Conservative | Empirical Support |
+|---|---|---|---|
+| **Mosquito Mesh** | 0.48 | 0.36 | **Yes** — von Seidlein et al. (2012) |
+| **Perforated Screen** | 0.65 | 0.45 | **No** — indicative only |
+| **Ventilation Blind** | 0.70 | 0.50 | **No** — indicative only |
+
+**Mosquito mesh values** are derived from von Seidlein et al. (2012) — "Airflow attenuation and bed net utilization: observations from Africa and Asia", *Malaria Journal* 11:200. Field measurements in 20 real households found mean 52% reduction (0.48 transmission). Wind tunnel experiments with 11 bed nets found mean 64% reduction (0.36 transmission, range 55–71%).
+
+**Other layer values** are illustrative placeholders based on typical porosity and obstruction patterns. These require empirical validation before use in production applications.
+
+#### Layer management
+
+- **Active layers** contribute to the reduction calculation
+- **Muted layers** are temporarily excluded from calculations without being deleted
+- **Layer ordering** follows the interface sequence; early layers affect the airflow experienced by later layers
+- **Empty layer set** applies no reduction (multiplier = 1.0), showing unobstructed indoor speed
 
 ---
 
@@ -233,12 +246,12 @@ A custom category system allows the user to define their own threshold values in
 
 The indoor ventilation overlay shows, for each outdoor wind speed category, the mean indoor air speed (in m/s) calculated from all the actual measured outdoor wind readings that fall within that category. A vertical line or pair of lines is drawn at the horizontal position corresponding to that mean indoor speed.
 
-When mosquito mesh is enabled, two bounds are shown:
-- A solid line for the optimistic bound (48% transmission; field conditions)
-- A dotted line for the conservative bound (36% transmission; wind tunnel conditions)
+When reduction layers are active, two bounds are shown:
+- A solid line for the optimistic bound (best-case transmission through all active layers)
+- A dotted line for the conservative bound (worst-case transmission through all active layers)  
 - A hatched green fill between the two bounds
 
-When no mesh is selected, a single line is shown.
+When no layers are active, a single red line is shown representing unobstructed indoor airflow.
 
 The secondary x-axis at the top of the chart shows indoor air speed in m/s. This axis is independent of the outdoor category axis; its scale is set automatically to accommodate the calculated indoor speeds.
 
@@ -258,11 +271,11 @@ The secondary x-axis at the top of the chart shows indoor air speed in m/s. This
 
 **Step 3:** Cross-section = √25 × 3.2 = 5 × 3.2 = 16 m². v_indoor = 2.09 / 16 = **0.131 m/s**
 
-**Step 4 (mesh):**
-- Optimistic (field conditions, 52% reduction): 0.131 × 0.48 = **0.063 m/s**
-- Conservative (wind tunnel, 64% reduction): 0.131 × 0.36 = **0.047 m/s**
+**Step 4 (layers):** Assuming mosquito mesh + perforated screen are active:
+- Optimistic: 0.131 × 0.48 × 0.65 = **0.041 m/s**
+- Conservative: 0.131 × 0.36 × 0.45 = **0.021 m/s**
 
-At 10 km/h outdoor wind (a moderate reading for this site), a room with these characteristics would experience roughly 0.047 to 0.063 m/s of mean indoor air speed through mesh -- barely at the lower edge of perceptibility.
+At 10 km/h outdoor wind (a moderate reading for this site), a room with these characteristics and two reduction layers would experience roughly 0.021 to 0.041 m/s of mean indoor air speed — well below the 0.1 m/s perceptibility threshold.
 
 ---
 
@@ -282,11 +295,13 @@ At 10 km/h outdoor wind (a moderate reading for this site), a room with these ch
 
 **7. Square floor plan assumed.** The formula treats the room as square in plan. A rectangular room with a narrow face toward the inlet window would have a smaller cross-section and higher actual mean speed; one with a wide face would have a larger cross-section and lower speed.
 
-**8. Mosquito mesh reduction is approximate.** The 0.36 to 0.48 range is derived from von Seidlein et al. (2012), but those measurements used bed nets draped over sleeping areas, not fixed window mesh screens. Fixed mesh in a rigid frame may behave differently. Mesh density, condition, and installation quality all affect actual attenuation.
+**8. Layer reduction factors have varying empirical support.** Mosquito mesh values (0.36–0.48) are derived from von Seidlein et al. (2012), but those measurements used bed nets draped over sleeping areas, not fixed window mesh screens. Values for perforated screens and ventilation blinds are indicative only and require empirical validation. Layer density, condition, installation quality, and interaction effects all affect actual attenuation.
 
 **9. Wind direction not modelled.** The selected ΔCp is applied uniformly to all outdoor wind speed readings regardless of actual wind direction at each timestep. In reality, the ventilation effectiveness varies with wind direction relative to the window. The "wind direction to window" setting is a fixed orientation assumption applied across the entire dataset.
 
 **10. Calculated value is a cross-section mean.** The indoor air speed is the mean across the room cross-section perpendicular to flow. Local speeds near the window can be several times higher; local speeds in corners and behind partitions may be near zero. Occupant experience depends strongly on position within the room.
+
+**11. Layer ordering assumes series arrangement.** The calculation applies reduction factors sequentially in the order layers are added, assuming each layer encounters the reduced airflow from upstream layers. In reality, layer interaction effects, parallel flow paths, and non-uniform obstruction distributions may alter the total reduction from simple multiplicative compounding.
 
 ---
 
