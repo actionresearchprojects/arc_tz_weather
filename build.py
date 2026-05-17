@@ -1585,7 +1585,7 @@ function setWindCatCustomUnit(unit) {
 function updateWindSeries() { updatePlot(); }
 
 // ── Wind Rose Slider ─────────────────────────────────────────────────────────
-let _wrSlider = {on: false, playing: false, timer: null, steps: [], idx: 0, maxR: null, curR: null, animId: null};
+let _wrSlider = {on: false, playing: false, timer: null, steps: [], stepEnds: [], idx: 0, maxR: null, curR: null, animId: null};
 
 function toggleWindRoseSlider(on) {
   _wrSlider.on = on;
@@ -1620,7 +1620,7 @@ function _wrSliderCalcMaxR() {
   const stride = Math.max(1, Math.floor(steps.length / 200));
   const peaks = [];
   for (let si = 0; si < steps.length; si += stride) {
-    const raw = filterRaw(steps[si], steps[si] + gran);
+    const raw = filterRaw(steps[si], _wrSlider.stepEnds[si]);
     if (!raw || !raw.ts.length) continue;
     const wr = _buildWindRose(raw);
     const sums = new Array(16).fill(0);
@@ -1640,13 +1640,28 @@ function _wrSliderBuildSteps() {
   const {start, end} = getTimeRange();
   const gran = parseInt(document.getElementById('wr-slider-granularity').value);
   const steps = [];
-  let t = start;
-  while (t < end) {
-    steps.push(t);
-    t += gran;
+  const stepEnds = [];
+  if (gran >= 2592000000) {
+    // Calendar-month-aligned steps so "Jan 2026" always means Jan 1 – Feb 1 UTC
+    const d0 = new Date(start);
+    let y = d0.getUTCFullYear(), mo = d0.getUTCMonth();
+    while (Date.UTC(y, mo, 1) < end) {
+      steps.push(Date.UTC(y, mo, 1));
+      stepEnds.push(Date.UTC(y, mo + 1, 1));
+      mo++;
+      if (mo >= 12) { mo = 0; y++; }
+    }
+  } else {
+    let t = start;
+    while (t < end) {
+      steps.push(t);
+      stepEnds.push(t + gran);
+      t += gran;
+    }
   }
-  if (!steps.length) steps.push(start);
+  if (!steps.length) { steps.push(start); stepEnds.push(start + gran); }
   _wrSlider.steps = steps;
+  _wrSlider.stepEnds = stepEnds;
   _wrSlider.idx = 0;
   const sl = document.getElementById('wr-sl-range');
   sl.min = 0;
@@ -1669,7 +1684,7 @@ function _wrSliderRender(animate) {
   if (!_wrSlider.steps.length || !ALL_DATA.raw) return;
   const gran = parseInt(document.getElementById('wr-slider-granularity').value);
   const winStart = _wrSlider.steps[_wrSlider.idx];
-  const winEnd = winStart + gran;
+  const winEnd = _wrSlider.stepEnds[_wrSlider.idx];
 
   // Display date/time label
   if (gran < 86400000) {
