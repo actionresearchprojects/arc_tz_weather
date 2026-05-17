@@ -2816,11 +2816,15 @@ function computeCompoundReduction() {
   let optimistic = 1.0;
   let pessimistic = 1.0;
 
+  console.log('Active layers:', activeLayers.length);
   for (const layer of activeLayers) {
+    console.log('Layer:', layer.name, 'opt:', layer.optimistic, 'pess:', layer.pessimistic);
     optimistic *= layer.optimistic;
     pessimistic *= layer.pessimistic;
+    console.log('Running totals - opt:', optimistic, 'pess:', pessimistic);
   }
 
+  console.log('Final reductions - optimistic:', optimistic, 'pessimistic:', pessimistic);
   return { optimistic, pessimistic };
 }
 
