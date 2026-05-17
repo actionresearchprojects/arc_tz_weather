@@ -350,16 +350,30 @@ optgroup{font-weight:600;font-style:normal}
             <option value="sideon">Side-on (90&#176;)</option>
           </select>
         </label>
-        <label class="cb-label" style="margin-bottom:4px"
-          title="Tick this if your windows have mosquito mesh. Mesh cuts the airflow roughly in half. The overlay shows a range: the solid line is the best case, the dotted line is the worst case.">
-          <input type="checkbox" id="iv-mesh" checked style="margin-right:4px">
-          <span style="font-size:10px;color:#555">Mosquito mesh present <span style="color:#aaa;font-size:9px">(?)</span></span>
-        </label>
+        <div style="margin-bottom:6px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+            <span style="font-size:10px;color:#555;font-weight:600">Reduction Layers</span>
+            <div style="display:flex;gap:4px">
+              <select id="iv-layer-type" style="font-size:10px;padding:1px 3px;border:1px solid #ccc;border-radius:3px">
+                <option value="mosquito-mesh">Mosquito Mesh</option>
+                <option value="perforated-screen">Perforated Screen</option>
+                <option value="ventilation-blind">Ventilation Blind</option>
+              </select>
+              <button onclick="addReductionLayer()" style="font-size:10px;padding:1px 6px;border:1px solid #4a90d9;border-radius:3px;cursor:pointer;background:#e8f0ff;color:#1a4a8a">Add</button>
+            </div>
+          </div>
+          <div id="iv-layers-container" style="display:flex;flex-direction:column;gap:2px;margin-bottom:4px">
+            <!-- Layers will be dynamically added here -->
+          </div>
+          <div style="font-size:9px;color:#888;background:#fef7e0;border:1px solid #f4d03f;border-radius:3px;padding:3px 5px;margin-bottom:2px">
+            <strong>Note:</strong> Mosquito mesh values are empirically supported (von Seidlein et al. 2012). Other layer values are indicative only.
+          </div>
+        </div>
         <details style="margin-bottom:6px">
           <summary style="font-size:10px;color:#4a90d9;cursor:pointer;user-select:none;list-style:none">&#9656; How does this work?</summary>
           <div style="font-size:10px;color:#444;margin-top:5px;line-height:1.6;background:#f7f9fc;border-radius:4px;padding:6px 8px;border:1px solid #dde4f0">
-            Fill in your room and window measurements, then press Apply. The chart will show a green line for each wind speed band indicating how fast the air would typically be moving inside your room when it is that windy outside.<br><br>
-            Bigger windows, stronger wind, and less shelter all mean more indoor breeze. Mosquito mesh cuts the airflow roughly in half, which is why the overlay shows two lines (best and worst case) when mesh is ticked.<br><br>
+            Fill in your room and window measurements, add reduction layers as needed, then press Apply. The chart will show green lines for each wind speed band indicating how fast the air would typically be moving inside your room when it is that windy outside.<br><br>
+            Bigger windows, stronger wind, and less shelter all mean more indoor breeze. Each reduction layer (mesh, screens, blinds) cuts the airflow by multiplying the previous reduction. The overlay shows upper and lower bounds representing the cumulative effect of all active layers.<br><br>
             <a href="INDOOR_VENTILATION_CALC.pdf" target="_blank" style="color:#4a90d9">Full technical reference (PDF) &#8599;</a>
           </div>
         </details>
@@ -2267,8 +2281,10 @@ function _getDenomKey() { return (state.windCatValueUnit||'pct')+'-'+(state.wind
 function _getDenomFactor() { return _DENOM_F[_getDenomKey()] || 24; }
 function _getDenomLabel() {
   const v=state.windCatValueUnit||'pct', p=state.windCatPerUnit||'day';
-  if (v==='pct') return '%';
-  return v[0].toUpperCase()+v.slice(1)+' per '+p;
+  if (v==='pct') return 'Percentage (%)';
+  const vLabel = v[0].toUpperCase()+v.slice(1);
+  const pLabel = p[0].toUpperCase()+p.slice(1);
+  return vLabel+' per '+pLabel;
 }
 function _isPercentMode() { return (state.windCatValueUnit||'pct') === 'pct'; }
 
@@ -2487,7 +2503,7 @@ function _buildWindCategoryDist(raw) {
     const iv = state.indoorVent;
     const speedArr = raw.avgWind;
 
-    function _ivMeanByBand(meshFactor) {
+    function _ivMeanByBand(reductionFactor) {
       const sums = new Array(n).fill(0);
       const cnts = new Array(n).fill(0);
       speedArr.forEach(v => {
@@ -2495,7 +2511,7 @@ function _buildWindCategoryDist(raw) {
         for (let i = 0; i < n; i++) {
           if (v >= bands[i].lo_kph && v < bands[i].hi_kph) {
             let spd = _computeIndoorSpeedMs(v, iv);
-            if (meshFactor != null) spd *= meshFactor;
+            if (reductionFactor != null) spd *= reductionFactor;
             sums[i] += spd;
             cnts[i]++;
             break;
@@ -2505,9 +2521,9 @@ function _buildWindCategoryDist(raw) {
       return sums.map((s, i) => cnts[i] > 0 ? Math.round(s / cnts[i] * 10000) / 10000 : null);
     }
 
-    if (iv.mesh) {
-      const meansHi = _ivMeanByBand(0.48);
-      const meansLo = _ivMeanByBand(0.36);
+    if (iv.layers.length > 0) {
+      const meansHi = _ivMeanByBand(iv.reductions.optimistic);
+      const meansLo = _ivMeanByBand(iv.reductions.pessimistic);
       const xFill = [], yFill = [], xHi = [], yHi = [], xLo = [], yLo = [];
       for (let i = 0; i < n; i++) {
         const hi = meansHi[i], lo = meansLo[i];
@@ -2537,20 +2553,20 @@ function _buildWindCategoryDist(raw) {
         line: {color: '#2ca02c', width: 1.5, dash: 'dot'},
       });
       traceData.push({
-        type: 'scatter', mode: 'lines', name: 'Indoor, mesh — optimistic (m/s)',
+        type: 'scatter', mode: 'lines', name: 'Indoor — optimistic (m/s)',
         x: [null], y: [null], yaxis: 'y2', xaxis: 'x2',
         line: {color: '#2ca02c', width: 2.5}, showlegend: true,
       });
       traceData.push({
-        type: 'scatter', mode: 'lines', name: 'Indoor, mesh — conservative (m/s)',
+        type: 'scatter', mode: 'lines', name: 'Indoor — conservative (m/s)',
         x: [null], y: [null], yaxis: 'y2', xaxis: 'x2',
         line: {color: '#2ca02c', width: 1.5, dash: 'dot'}, showlegend: true,
       });
     } else {
-      const meansNoMesh = _ivMeanByBand(null);
+      const meansNoLayers = _ivMeanByBand(null);
       const xLine = [], yLine = [];
       for (let i = 0; i < n; i++) {
-        const spd = meansNoMesh[i];
+        const spd = meansNoLayers[i];
         if (spd == null) continue;
         x2Max = Math.max(x2Max, spd);
         xLine.push(spd, spd, null);
@@ -2562,7 +2578,7 @@ function _buildWindCategoryDist(raw) {
         line: {color: '#d62728', width: 2.5},
       });
       traceData.push({
-        type: 'scatter', mode: 'lines', name: 'Indoor, no mesh (m/s)',
+        type: 'scatter', mode: 'lines', name: 'Indoor, no layers (m/s)',
         x: [null], y: [null], yaxis: 'y2', xaxis: 'x2',
         line: {color: '#d62728', width: 2.5}, showlegend: true,
       });
@@ -2608,6 +2624,134 @@ const _IV_DELTA_CP = {
   urban:    { direct: 0.45, angle45: 0.35, sideon: 0.05 },
 };
 
+// Reduction layer definitions with empirically supported and indicative values
+const _REDUCTION_LAYERS = {
+  'mosquito-mesh': {
+    name: 'Mosquito Mesh',
+    // Von Seidlein et al. (2012): 52% reduction (field) to 64% reduction (tunnel)
+    optimistic: 0.48, // 52% reduction → 48% transmission
+    pessimistic: 0.36, // 64% reduction → 36% transmission
+    empiricallySupported: true
+  },
+  'perforated-screen': {
+    name: 'Perforated Screen',
+    // Indicative values based on typical screen porosity
+    optimistic: 0.65, // 35% reduction → 65% transmission
+    pessimistic: 0.45, // 55% reduction → 45% transmission
+    empiricallySupported: false
+  },
+  'ventilation-blind': {
+    name: 'Ventilation Blind',
+    // Indicative values for partially closed blind
+    optimistic: 0.70, // 30% reduction → 70% transmission
+    pessimistic: 0.50, // 50% reduction → 50% transmission
+    empiricallySupported: false
+  }
+};
+
+// Global layer management
+let _activeLayerCount = 0;
+
+// Layer management functions
+function addReductionLayer() {
+  const layerType = document.getElementById('iv-layer-type').value;
+  const layerDef = _REDUCTION_LAYERS[layerType];
+  if (!layerDef) return;
+
+  _activeLayerCount++;
+  const layerId = `layer-${_activeLayerCount}`;
+
+  const container = document.getElementById('iv-layers-container');
+  const layerDiv = document.createElement('div');
+  layerDiv.id = layerId;
+  layerDiv.style.cssText = 'display:flex;align-items:center;gap:4px;padding:2px 4px;border:1px solid #ddd;border-radius:3px;background:#f9f9f9;font-size:10px';
+
+  layerDiv.innerHTML = `
+    <span style="flex:1;color:#333">${layerDef.name}</span>
+    <button onclick="toggleLayer('${layerId}')" id="${layerId}-mute"
+            style="font-size:9px;padding:1px 4px;border:1px solid #666;border-radius:2px;cursor:pointer;background:#fff;color:#666;min-width:40px">Mute</button>
+    <button onclick="removeLayer('${layerId}')"
+            style="font-size:9px;padding:1px 4px;border:1px solid #d9534f;border-radius:2px;cursor:pointer;background:#f2dede;color:#a94442">Remove</button>
+  `;
+
+  // Store layer data
+  layerDiv.dataset.layerType = layerType;
+  layerDiv.dataset.active = 'true';
+
+  container.appendChild(layerDiv);
+
+  // Auto-apply if there are parameters set
+  if (state.indoorVent) {
+    applyIndoorVent();
+  }
+}
+
+function removeLayer(layerId) {
+  const layerElement = document.getElementById(layerId);
+  if (layerElement) {
+    layerElement.remove();
+    // Auto-apply if there are parameters set
+    if (state.indoorVent) {
+      applyIndoorVent();
+    }
+  }
+}
+
+function toggleLayer(layerId) {
+  const layerElement = document.getElementById(layerId);
+  const muteButton = document.getElementById(`${layerId}-mute`);
+  if (!layerElement || !muteButton) return;
+
+  const isActive = layerElement.dataset.active === 'true';
+
+  if (isActive) {
+    // Mute the layer
+    layerElement.dataset.active = 'false';
+    layerElement.style.opacity = '0.5';
+    muteButton.textContent = 'Solo';
+    muteButton.style.background = '#dff0d8';
+    muteButton.style.color = '#3c763d';
+    muteButton.style.borderColor = '#3c763d';
+  } else {
+    // Unmute the layer
+    layerElement.dataset.active = 'true';
+    layerElement.style.opacity = '1';
+    muteButton.textContent = 'Mute';
+    muteButton.style.background = '#fff';
+    muteButton.style.color = '#666';
+    muteButton.style.borderColor = '#666';
+  }
+
+  // Auto-apply if there are parameters set
+  if (state.indoorVent) {
+    applyIndoorVent();
+  }
+}
+
+function getActiveLayers() {
+  const container = document.getElementById('iv-layers-container');
+  const layers = Array.from(container.children).filter(layer => layer.dataset.active === 'true');
+  return layers.map(layer => _REDUCTION_LAYERS[layer.dataset.layerType]);
+}
+
+function computeCompoundReduction() {
+  const activeLayers = getActiveLayers();
+  if (activeLayers.length === 0) {
+    return { optimistic: 1.0, pessimistic: 1.0 };
+  }
+
+  // Apply layers sequentially (multiplicative)
+  let optimistic = 1.0;
+  let pessimistic = 1.0;
+
+  for (const layer of activeLayers) {
+    optimistic *= layer.optimistic;
+    pessimistic *= layer.pessimistic;
+  }
+
+  return { optimistic, pessimistic };
+}
+
 function _computeIndoorSpeedMs(v_kph, iv) {
   if (v_kph == null || v_kph <= 0) return 0;
   const v_ms = v_kph / 3.6;
@@ -2625,7 +2769,8 @@ function _readIndoorVentParams() {
   const roomHeight = parseFloat(document.getElementById('iv-room-height').value);
   const shielding  = document.getElementById('iv-shielding').value;
   const windDir    = document.getElementById('iv-wind-dir').value;
-  const mesh       = document.getElementById('iv-mesh').checked;
+  const layers     = getActiveLayers();
+  const reductions = computeCompoundReduction();
   const status     = document.getElementById('iv-status');
   if (!inletArea || !outletArea || !floorArea || !roomHeight ||
       inletArea <= 0 || outletArea <= 0 || floorArea <= 0 || roomHeight <= 0) {
@@ -2633,7 +2778,7 @@ function _readIndoorVentParams() {
     return null;
   }
   if (status) status.textContent = '';
-  return { inletArea, outletArea, floorArea, roomHeight, shielding, windDir, mesh };
+  return { inletArea, outletArea, floorArea, roomHeight, shielding, windDir, layers, reductions };
 }
 
 function applyIndoorVent() {
@@ -2654,8 +2799,8 @@ function applyIndoorVent() {
         const p90 = spds[Math.floor(spds.length * 0.90)];
         const mx  = spds[spds.length - 1];
         const f = (v, factor) => (v * factor).toFixed(3);
-        const stats = iv.mesh
-          ? `Median ${f(p50,0.36)}–${f(p50,0.48)}&nbsp;m/s, p90 ${f(p90,0.36)}–${f(p90,0.48)}&nbsp;m/s, max ${f(mx,0.36)}–${f(mx,0.48)}&nbsp;m/s`
+        const stats = iv.layers.length > 0
+          ? `Median ${f(p50,iv.reductions.pessimistic)}–${f(p50,iv.reductions.optimistic)}&nbsp;m/s, p90 ${f(p90,iv.reductions.pessimistic)}–${f(p90,iv.reductions.optimistic)}&nbsp;m/s, max ${f(mx,iv.reductions.pessimistic)}–${f(mx,iv.reductions.optimistic)}&nbsp;m/s`
           : `Median ${f(p50,1)}&nbsp;m/s, p90 ${f(p90,1)}&nbsp;m/s, max ${f(mx,1)}&nbsp;m/s`;
         html += `<br><span style="font-size:10px;color:#555">${stats}</span>`;
       }
@@ -3808,6 +3953,10 @@ function init() {
 }
 
 init();
+
+// Initialize with default mosquito mesh layer (maintains backward compatibility)
+document.getElementById('iv-layer-type').value = 'mosquito-mesh';
+addReductionLayer();
 </script>
 </body>
 </html>
