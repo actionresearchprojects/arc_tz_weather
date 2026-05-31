@@ -604,6 +604,7 @@ optgroup{font-weight:600;font-style:normal}
       </div>
       <div id="data-filter-list"></div>
       <button id="data-filter-add" onclick="addDataFilter()" style="font-size:11px;padding:3px 8px;border:1px solid #ccc;border-radius:3px;background:#f5f5f5;cursor:pointer;color:#555">+ Add Filter</button>
+      <div id="df-count-badge" style="display:none;margin-top:5px;font-size:10px;color:#555;background:#f0f4ff;border:1px solid #c8d4f0;border-radius:3px;padding:2px 6px;font-family:monospace"></div>
     </div>
     <hr class="divider">
 
@@ -1987,7 +1988,21 @@ function _dfSummary(active, combine){
 function _applyFilterStatus(ct){
   const el = document.getElementById('chart-note'); if (!el) return;
   const active = getActiveDataFilters();
-  if (!active.length) return;
+  if (!active.length) {
+    document.getElementById('df-count-badge').style.display = 'none';
+    return;
+  }
+  // Show live count of passing readings in the sidebar badge
+  const badge = document.getElementById('df-count-badge');
+  if (badge && ALL_DATA.raw) {
+    const {start, end} = getTimeRange();
+    const raw = applyDataFilter(filterRaw(start, end));
+    const total = filterRaw(start, end);
+    const passing = raw ? raw.ts.length : 0;
+    const tot = total ? total.ts.length : ALL_DATA.raw.ts.length;
+    badge.textContent = passing + ' / ' + tot + ' readings (' + Math.round(passing/tot*100) + '%)';
+    badge.style.display = '';
+  }
   const base = el.textContent ? el.textContent + '   ' : '';
   el.textContent = base + (chartSupportsFilter(ct)
     ? '● Filtered: ' + _dfSummary(active, state.dataFilterCombine)
