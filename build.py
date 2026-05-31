@@ -3601,6 +3601,7 @@ function updateDataFreshness() {
   const DAY_MS = 86400000;
   const lines = [];
   let warnHtml = '';
+  let fetchDateDisplay = df.fetchTime || 'Unknown';
   if (df.fetchTime) {
     const parts = df.fetchTime.split(' ');
     if (parts.length >= 2) {
@@ -3610,9 +3611,13 @@ function updateDataFreshness() {
       if (diffDays > 2) {
         warnHtml = ' <span class="stale-warn" title="' + t('staleWarning') + '">\u26a0</span>';
       }
+      const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      const d = fetchDate.getUTCDate();
+      const suffix = (d === 1 || d === 21 || d === 31) ? 'st' : (d === 2 || d === 22) ? 'nd' : (d === 3 || d === 23) ? 'rd' : 'th';
+      fetchDateDisplay = d + suffix + ' ' + months[fetchDate.getUTCMonth()] + ' ' + fetchDate.getUTCFullYear() + ' at ' + parts[1] + ' UTC';
     }
   }
-  lines.push('Omnisense last updated: ' + (df.fetchTime || 'Unknown') + warnHtml);
+  lines.push('Omnisense last updated: ' + fetchDateDisplay + warnHtml);
   // Cycle data freshness
   if (df.cyclesFetchTime) {
     const now = Date.now();
