@@ -4,6 +4,12 @@ on:
   schedule:
     - cron: '0 5 * * *'  # daily at 05:00 UTC (08:00 EAT)
   workflow_dispatch:
+  repository_dispatch:
+    types: [update-from-temp-humid]  # triggered by arc_tz_temp_humid after it pushes fresh data
+
+concurrency:
+  group: update-dashboard
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -56,6 +62,7 @@ jobs:
 
       - name: Commit and push if changed
         id: push
+        continue-on-error: true
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "actions@users.noreply.github.com"
@@ -64,14 +71,23 @@ jobs:
             echo "changed=false" >> $GITHUB_OUTPUT
           else
             git commit -m "auto-update weather data $(date -u +%Y-%m-%d)"
-            git push
-            echo "changed=true" >> $GITHUB_OUTPUT
+            for i in 1 2 3 4 5; do
+              if git push; then
+                echo "Push succeeded on attempt $i"
+                echo "changed=true" >> $GITHUB_OUTPUT
+                exit 0
+              fi
+              echo "Push attempt $i failed; rebasing onto remote and retrying"
+              git pull --rebase origin main
+            done
+            echo "Push failed after 5 attempts"
+            exit 1
           fi
 
       - name: Trigger main site sync
         if: steps.push.outputs.changed == 'true'
         run: |
-          curl -X POST \
+          curl -sf -X POST \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${{ secrets.MAIN_SITE_PAT }}" \
             https://api.github.com/repos/actionresearchprojects/actionresearchprojects.github.io/dispatches \
