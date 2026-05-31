@@ -12,6 +12,10 @@ import pytz
 
 TIMEZONE = pytz.timezone("Africa/Dar_es_Salaam")
 SENSOR_ID = "30B40014"
+# Outdoor weather-station temperature & humidity sensor. Lives in the same shared
+# Omnisense CSV as the wind/solar/rain station, in a separate T&RH section. Used to
+# enable conditional ("when it's hot") filtering of every chart.
+OUTDOOR_TH_SENSOR_ID = "320E02D1"
 LATITUDE = -7.065   # ARC ecovillage near Mkuranga
 LONGITUDE = 39.18
 SOLAR_CONSTANT = 1361  # W/m2
@@ -297,6 +301,56 @@ def load_weather_csv(csv_path):
 
     df = df.sort_values("timestamp").reset_index(drop=True)
     return df
+
+
+def load_outdoor_th(csv_path, sensor_id=OUTDOOR_TH_SENSOR_ID):
+    """Parse outdoor temperature & humidity from the weather-station T&RH sensor.
+
+    The shared Omnisense CSV contains several sensor sections with differing
+    column layouts. This walks the file tracking the active section header so the
+    correct columns are read regardless of section order, then keeps only rows for
+    ``sensor_id``.
+
+    Returns a DataFrame with columns ``timestamp`` (tz-aware EAT), ``temp``,
+    ``humidity`` and ``dew_point``. Returns an empty DataFrame if the sensor is
+    absent so the caller can degrade gracefully.
+    """
+    with open(csv_path, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+
+    header = None
+    rows = []
+    for line in lines:
+        s = line.strip()
+        if not s:
+            continue
+        if s.startswith("sensorId,port,read_date"):
+            header = s.split(",")
+            continue
+        if header is None or "temperature" not in header or "humidity" not in header:
+            continue
+        if not s.startswith(sensor_id + ","):
+            continue
+        parts = s.split(",")
+        if len(parts) < len(header):
+            continue
+        rows.append(dict(zip(header, parts)))
+
+    cols = ["timestamp", "temp", "humidity", "dew_point"]
+    if not rows:
+        return pd.DataFrame(columns=cols)
+
+    src = pd.DataFrame(rows)
+    out = pd.DataFrame({
+        "timestamp": pd.to_datetime(src["read_date"], format="%Y-%m-%d %H:%M:%S", errors="coerce"),
+        "temp": pd.to_numeric(src["temperature"], errors="coerce"),
+        "humidity": pd.to_numeric(src["humidity"], errors="coerce"),
+        "dew_point": pd.to_numeric(src["dew_point"], errors="coerce")
+        if "dew_point" in src else pd.Series([None] * len(src)),
+    })
+    out["timestamp"] = out["timestamp"].dt.tz_localize(TIMEZONE)
+    out = out.dropna(subset=["timestamp"]).sort_values("timestamp").reset_index(drop=True)
+    return out
 
 
 def find_latest_csv(data_dir="data/omnisense"):

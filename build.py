@@ -24,7 +24,7 @@ from pathlib import Path
 import pandas as pd
 
 from modules.common import (
-    load_weather_csv, find_latest_csv, build_available_periods,
+    load_weather_csv, load_outdoor_th, find_latest_csv, build_available_periods,
     wind_qc, detect_precip_resets, to_eat_ms, TIMEZONE,
     MAGNETIC_DECLINATION_EXPIRED, _IGRF14_EXPIRY,
 )
@@ -349,6 +349,25 @@ def build_dashboard(csv_path=None):
     _arc_gust_result  = wind.fit_arc_wind_bands(df_r["peak_wind_kph"].dropna().values)
     arc_bands_gust = _arc_gust_result["bands"] if _arc_gust_result else None
     arc_meta_gust  = _arc_gust_result["meta"]  if _arc_gust_result else None
+    # Outdoor temperature & humidity (weather-station T&RH sensor) for conditional
+    # filtering. Merged onto the wind/solar/rain timestamps by nearest match within
+    # 5 minutes; df_r is already sorted ascending so the merged order aligns row-for-row.
+    _th = load_outdoor_th(csv_file)
+    if not _th.empty:
+        _merged = pd.merge_asof(
+            df_r[["timestamp"]].reset_index(drop=True),
+            _th.sort_values("timestamp"),
+            on="timestamp", direction="nearest", tolerance=pd.Timedelta("5min"),
+        )
+        _temp_arr = list(_merged["temp"])
+        _hum_arr = list(_merged["humidity"])
+        print(f"Merged outdoor T&RH ({len(_th)} readings, "
+              f"{_th['timestamp'].min()} to {_th['timestamp'].max()})")
+    else:
+        _temp_arr = [None] * len(df_r)
+        _hum_arr = [None] * len(df_r)
+        print("WARNING: outdoor T&RH sensor not found; temperature/humidity filters disabled")
+
     raw_data = {
         "ts":           [to_eat_ms(t) for t in df_r["timestamp"]],
         "avgWind":      [round(float(v), 1) if pd.notna(v) else None for v in df_r["avg_wind_kph"]],
@@ -357,6 +376,8 @@ def build_dashboard(csv_path=None):
         "solar":        [round(float(v), 1) if pd.notna(v) else None for v in df_r["solar_wm2"]],
         "precipRate":   [round(float(v), 3) if pd.notna(v) else None for v in df_r["precip_rate_mmh"]],
         "precipIncr":   [round(float(v), 3) if pd.notna(v) else None for v in precip_incr],
+        "temp":         [round(float(v), 1) if pd.notna(v) else None for v in _temp_arr],
+        "humidity":     [round(float(v), 1) if pd.notna(v) else None for v in _hum_arr],
         "arcBands":     arc_wind_bands,
         "arcMeta":      arc_gmm_meta,
         "arcBandsGust": arc_bands_gust,
@@ -572,6 +593,19 @@ optgroup{font-weight:600;font-style:normal}
 
 <div id="main">
   <div id="sidebar">
+
+    <!-- Global Data Filters (value-based, applies to point-in-time charts) -->
+    <div class="section" id="data-filter-section">
+      <div class="section-title">Data Filters <span class="info-i" id="data-filter-info" onmouseenter="document.getElementById('data-filter-info-tip').style.display=''" onmouseleave="document.getElementById('data-filter-info-tip').style.display='none'">i</span></div>
+      <div id="data-filter-info-tip" style="display:none;font-size:11px;color:#666;line-height:1.4;margin-bottom:6px;padding:6px 8px;background:#f5f5f5;border:1px solid #ddd;border-radius:4px;">Keep only the readings that match your criteria, for example wind direction when the temperature is at or above 32 C. Filters apply to every point-in-time chart. Span and duration charts (calm periods, dry spells, ventilation availability, rain events, cumulative rainfall) show a notice instead, because removing readings breaks the meaning of a consecutive run.</div>
+      <div id="data-filter-combine" style="display:none;align-items:center;gap:8px;font-size:11px;margin-bottom:6px">
+        <label style="cursor:pointer;display:flex;align-items:center;gap:3px"><input type="radio" name="df-combine" value="all" checked onchange="setDataFilterCombine('all')"> Match ALL</label>
+        <label style="cursor:pointer;display:flex;align-items:center;gap:3px"><input type="radio" name="df-combine" value="any" onchange="setDataFilterCombine('any')"> Match ANY</label>
+      </div>
+      <div id="data-filter-list"></div>
+      <button id="data-filter-add" onclick="addDataFilter()" style="font-size:11px;padding:3px 8px;border:1px solid #ccc;border-radius:3px;background:#f5f5f5;cursor:pointer;color:#555">+ Add Filter</button>
+    </div>
+    <hr class="divider">
 
     <!-- Periodic options (shown for avg profiles charts) -->
     <div class="section" id="periodic-options" style="display:none">
@@ -919,6 +953,8 @@ const state = {
   windCatCustomBands: null,    // user-defined bands; null = use Lawson defaults
   windCatCustomUnit: 'ms',     // unit for custom threshold values: ms|kmh|kn
   indoorVent: null,            // active indoor ventilation overlay params, or null
+  dataFilters: [],             // global value filters: [{id, var, op, v1, v2}]
+  dataFilterCombine: 'all',    // 'all' (AND) or 'any' (OR)
 };
 
 let currentLang = 'en';
@@ -1847,16 +1883,184 @@ function _resampleRawHourly(raw) {
 function filterRaw(start, end) {
   const r = ALL_DATA.raw;
   if (!r) return null;
-  const out = {ts:[],avgWind:[],peakWind:[],windDir:[],solar:[],precipRate:[],precipIncr:[]};
+  const out = {ts:[],avgWind:[],peakWind:[],windDir:[],solar:[],precipRate:[],precipIncr:[],temp:[],humidity:[]};
   for (let i = 0; i < r.ts.length; i++) {
     if (r.ts[i] >= start && r.ts[i] <= end) {
       out.ts.push(r.ts[i]); out.avgWind.push(r.avgWind[i]);
       out.peakWind.push(r.peakWind[i]); out.windDir.push(r.windDir[i]);
       out.solar.push(r.solar[i]); out.precipRate.push(r.precipRate[i]);
       out.precipIncr.push(r.precipIncr[i]);
+      out.temp.push(r.temp ? r.temp[i] : null);
+      out.humidity.push(r.humidity ? r.humidity[i] : null);
     }
   }
   return out.ts.length ? out : null;
+}
+
+// ── Global Data Filters (value-based post-filter) ─────────────────────────────
+// Late-stage filter applied to the raw readings before a chart is recomputed.
+// Each row tests one measured variable; rows combine with ALL (AND) or ANY (OR).
+// Mirrors the temp/humid substratification pattern but tests values, not time
+// strata. Span/duration charts are exempt (a value filter punches holes in the
+// timeline, breaking the meaning of a consecutive run) and show a notice instead.
+const DATA_FILTER_VARS = {
+  avgWind:   {label:'Wind speed',      label_sw:'Kasi ya upepo',     unit:'km/h',  min:0, max:60,   step:0.5},
+  peakWind:  {label:'Gust speed',      label_sw:'Kasi ya kimbunga',  unit:'km/h',  min:0, max:100,  step:0.5},
+  temp:      {label:'Temperature',     label_sw:'Joto',              unit:'°C', min:0, max:45,  step:0.5},
+  humidity:  {label:'Humidity',        label_sw:'Unyevu',            unit:'%',     min:0, max:100,  step:1},
+  solar:     {label:'Solar radiation', label_sw:'Mnururisho wa jua', unit:'W/m²', min:0, max:1100, step:10},
+  precipRate:{label:'Rain rate',       label_sw:'Kasi ya mvua',      unit:'mm/h',  min:0, max:100,  step:0.5},
+};
+const DATA_FILTER_VAR_ORDER = ['temp','humidity','avgWind','peakWind','solar','precipRate'];
+
+// Point-in-time charts (each reading independent) that honour the global filter.
+const FILTER_SUPPORTED_CHARTS = new Set([
+  'wind-rose','wind-distribution','solar-distribution','driving-rain','wind-rain',
+  'solar-wind','ventilation-windows','wind-category-dist',
+]);
+function chartSupportsFilter(ct){ return FILTER_SUPPORTED_CHARTS.has(ct); }
+
+let _dataFilterIdCounter = 0;
+
+function _dfActive(f){
+  return f && f.var && f.op &&
+    (f.op === 'between' ? (f.v1 != null && f.v2 != null) : (f.v1 != null));
+}
+function getActiveDataFilters(){ return state.dataFilters.filter(_dfActive); }
+
+function _dfTest(val, f){
+  if (val == null) return false;
+  if (f.op === 'ge') return val >= f.v1;
+  if (f.op === 'le') return val <= f.v1;
+  if (f.op === 'between'){ const lo=Math.min(f.v1,f.v2), hi=Math.max(f.v1,f.v2); return val>=lo && val<=hi; }
+  return true;
+}
+function passesDataFilters(raw, i){
+  const active = getActiveDataFilters();
+  if (!active.length) return true;
+  if (state.dataFilterCombine === 'any'){
+    for (const f of active){ if (_dfTest(raw[f.var] ? raw[f.var][i] : null, f)) return true; }
+    return false;
+  }
+  for (const f of active){ if (!_dfTest(raw[f.var] ? raw[f.var][i] : null, f)) return false; }
+  return true;
+}
+// Return a new raw object with only the readings that pass; null if none.
+function applyDataFilter(raw){
+  if (!raw) return null;
+  const active = getActiveDataFilters();
+  if (!active.length) return raw;
+  const keys = Object.keys(raw).filter(k => Array.isArray(raw[k]) && raw[k].length === raw.ts.length);
+  const out = {}; keys.forEach(k => out[k] = []);
+  for (let i = 0; i < raw.ts.length; i++){
+    if (passesDataFilters(raw, i)) keys.forEach(k => out[k].push(raw[k][i]));
+  }
+  Object.keys(raw).forEach(k => { if (!(k in out)) out[k] = raw[k]; });  // carry non-array fields
+  return out.ts.length ? out : null;
+}
+
+function _dfSummary(active, combine){
+  const join = combine === 'any' ? ' OR ' : ' AND ';
+  return active.map(f => {
+    const m = DATA_FILTER_VARS[f.var]; const u = m ? m.unit : ''; const name = m ? m.label : f.var;
+    if (f.op === 'between') return name + ' ' + f.v1 + '–' + f.v2 + u;
+    return name + (f.op === 'ge' ? ' ≥ ' : ' ≤ ') + f.v1 + u;
+  }).join(join);
+}
+
+function _applyFilterStatus(ct){
+  const el = document.getElementById('chart-note'); if (!el) return;
+  const active = getActiveDataFilters();
+  if (!active.length) return;
+  const base = el.textContent ? el.textContent + '   ' : '';
+  el.textContent = base + (chartSupportsFilter(ct)
+    ? '● Filtered: ' + _dfSummary(active, state.dataFilterCombine)
+    : '⚠ Global filter not applied to this chart type');
+}
+
+function _showNoData(){
+  Plotly.react(document.getElementById('chart'), [], {
+    annotations:[{text:'No data matches the filter', showarrow:false,
+      font:{size:14,color:'#999'}, xref:'paper', yref:'paper', x:0.5, y:0.5}],
+    margin:{l:40,r:40,t:30,b:40}, autosize:true,
+  }, {responsive:true, displayModeBar:false});
+}
+
+// ── Data filter UI ────────────────────────────────────────────────────────────
+function addDataFilter(){
+  state.dataFilters.push({id: ++_dataFilterIdCounter, var:'temp', op:'ge', v1:32, v2:null});
+  renderDataFilters(); updatePlot();
+}
+function removeDataFilter(id){
+  state.dataFilters = state.dataFilters.filter(f => f.id !== id);
+  renderDataFilters(); updatePlot();
+}
+function setDataFilterCombine(v){ state.dataFilterCombine = v; updatePlot(); }
+
+function renderDataFilters(){
+  const wrap = document.getElementById('data-filter-list'); if (!wrap) return;
+  wrap.innerHTML = '';
+  if (!state.dataFilters.length){
+    const empty = document.createElement('div');
+    empty.style.cssText = 'font-size:10px;color:#999;font-style:italic;margin:2px 0 4px';
+    empty.textContent = 'No filters. Showing all readings.';
+    wrap.appendChild(empty);
+  }
+  state.dataFilters.forEach(f => wrap.appendChild(_renderDataFilterRow(f)));
+  const combineWrap = document.getElementById('data-filter-combine');
+  if (combineWrap) combineWrap.style.display = state.dataFilters.length > 1 ? 'flex' : 'none';
+}
+
+function _renderDataFilterRow(f){
+  const m = DATA_FILTER_VARS[f.var] || {min:0,max:100,step:1,unit:''};
+  const row = document.createElement('div');
+  row.id = 'df-' + f.id;
+  row.style.cssText = 'display:flex;align-items:center;gap:4px;margin-bottom:4px;flex-wrap:wrap';
+
+  const varSel = document.createElement('select');
+  varSel.style.cssText = 'font-size:10px;max-width:118px';
+  DATA_FILTER_VAR_ORDER.forEach(k => {
+    const mm = DATA_FILTER_VARS[k];
+    varSel.appendChild(new Option(currentLang==='sw'?mm.label_sw:mm.label, k));
+  });
+  varSel.value = f.var;
+  varSel.addEventListener('change', () => {
+    f.var = varSel.value; const mm = DATA_FILTER_VARS[f.var];
+    if (f.v1 == null || f.v1 < mm.min || f.v1 > mm.max) f.v1 = mm.min;
+    renderDataFilters(); updatePlot();
+  });
+
+  const opSel = document.createElement('select');
+  opSel.style.cssText = 'font-size:10px';
+  [['ge','≥'],['le','≤'],['between','↔']].forEach(([v,lbl]) => opSel.appendChild(new Option(lbl, v)));
+  opSel.value = f.op;
+  opSel.addEventListener('change', () => { f.op = opSel.value; if (f.op==='between' && f.v2==null) f.v2 = f.v1; renderDataFilters(); updatePlot(); });
+
+  const mkVal = (getter, setter) => {
+    const inp = document.createElement('input');
+    inp.type='number'; inp.step=m.step; inp.min=m.min; inp.max=m.max;
+    inp.value = getter() != null ? getter() : '';
+    inp.style.cssText = 'width:50px;font-size:10px;padding:1px 3px;border:1px solid #ccc;border-radius:3px';
+    inp.addEventListener('input', () => { setter(inp.value === '' ? null : parseFloat(inp.value)); updatePlot(); });
+    return inp;
+  };
+
+  row.appendChild(varSel); row.appendChild(opSel);
+  row.appendChild(mkVal(() => f.v1, v => f.v1 = v));
+  if (f.op === 'between'){
+    const dash = document.createElement('span'); dash.textContent='–'; dash.style.cssText='font-size:11px;color:#666';
+    row.appendChild(dash);
+    row.appendChild(mkVal(() => f.v2, v => f.v2 = v));
+  }
+  const unit = document.createElement('span'); unit.textContent = m.unit;
+  unit.style.cssText='font-size:10px;color:#666'; row.appendChild(unit);
+
+  const rm = document.createElement('button');
+  rm.innerHTML='&times;'; rm.title='Remove filter';
+  rm.style.cssText='margin-left:auto;background:none;border:none;color:#999;cursor:pointer;font-size:15px;line-height:1;padding:0 2px';
+  rm.addEventListener('click', () => removeDataFilter(f.id));
+  row.appendChild(rm);
+  return row;
 }
 
 function _median(a) { const s=a.slice().sort((x,y)=>x-y),m=s.length>>1; return s.length%2?s[m]:(s[m-1]+s[m])/2; }
@@ -1928,10 +2132,13 @@ function _computeStats(raw) {
 }
 
 function _getStats() {
-  if (!ALL_DATA.raw || state.timeMode === 'all') return {ws:ALL_DATA.stats.wind,ss:ALL_DATA.stats.solar,ps:ALL_DATA.stats.precipitation,cs:ALL_DATA.stats.cross};
+  const _dfOn = getActiveDataFilters().length > 0;
+  const _full = {ws:ALL_DATA.stats.wind,ss:ALL_DATA.stats.solar,ps:ALL_DATA.stats.precipitation,cs:ALL_DATA.stats.cross};
+  if (!ALL_DATA.raw || (state.timeMode === 'all' && !_dfOn)) return _full;
   const {start,end} = getTimeRange();
-  const raw = filterRaw(start, end);
-  return raw ? _computeStats(raw) : {ws:ALL_DATA.stats.wind,ss:ALL_DATA.stats.solar,ps:ALL_DATA.stats.precipitation,cs:ALL_DATA.stats.cross};
+  let raw = filterRaw(start, end);
+  if (_dfOn) raw = applyDataFilter(raw);
+  return raw ? _computeStats(raw) : _full;
 }
 
 let _wrSums = null;
@@ -2921,6 +3128,7 @@ function updatePlot() {
   const titleEl = document.getElementById('bar-title');
   titleEl.textContent = currentLang === 'sw' ? (chart.title_sw || chart.title) : chart.title;
   document.getElementById('chart-note').textContent = chart.note || '';
+  _applyFilterStatus(ct);
 
   // If wind rose slider is active, delegate rendering to slider
   if (ct === 'wind-rose' && _wrSlider.on) {
@@ -2934,21 +3142,20 @@ function updatePlot() {
 
   // Pre-compute filtered chart for aggregated chart types (needed by stats panel)
   _computedChart = null;
+  const _dfApplies = getActiveDataFilters().length > 0 && chartSupportsFilter(ct);
   if (_RAW_BUILDERS[ct] && ALL_DATA.raw) {
     const alwaysCompute = ct === 'wind-category-dist' || ct === 'wind-rose' || ct === 'solar-distribution';
     const use1h = ct === 'driving-rain' && state.driResample === '1h';
 
-    if (use1h && state.timeMode === 'all') {
+    if (use1h && state.timeMode === 'all' && !_dfApplies) {
       // Use Python-precomputed hourly DRI (avoids resampling 13k readings in JS)
       _computedChart = ALL_DATA.driHourly || null;
-    } else if (alwaysCompute || state.timeMode !== 'all' || use1h) {
+    } else if (alwaysCompute || state.timeMode !== 'all' || use1h || _dfApplies) {
       const {start, end} = getTimeRange();
-      let raw;
-      if (use1h) {
-        raw = _resampleRawHourly(filterRaw(start, end));
-      } else {
-        raw = (alwaysCompute && state.timeMode === 'all') ? ALL_DATA.raw : filterRaw(start, end);
-      }
+      let raw = (alwaysCompute && state.timeMode === 'all' && !_dfApplies) ? ALL_DATA.raw : filterRaw(start, end);
+      if (_dfApplies) raw = applyDataFilter(raw);
+      if (_dfApplies && !raw) { updateSidebarControls(); _showNoData(); updateStatsPanel(); return; }
+      if (use1h && raw) raw = _resampleRawHourly(raw);
       if (raw) _computedChart = _RAW_BUILDERS[ct](raw) || null;
     }
   }
