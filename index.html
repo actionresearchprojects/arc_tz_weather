@@ -3721,7 +3721,7 @@ function updateDataFreshness() {
       const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
       const d = fetchDate.getUTCDate();
       const suffix = (d === 1 || d === 21 || d === 31) ? 'st' : (d === 2 || d === 22) ? 'nd' : (d === 3 || d === 23) ? 'rd' : 'th';
-      fetchDateDisplay = d + suffix + ' ' + months[fetchDate.getUTCMonth()] + ' ' + fetchDate.getUTCFullYear() + ' at ' + parts[1] + ' UTC';
+      fetchDateDisplay = d + suffix + ' ' + months[fetchDate.getUTCMonth()] + ' ' + fetchDate.getUTCFullYear();
     }
   }
   lines.push('Omnisense last updated: ' + fetchDateDisplay + warnHtml);
