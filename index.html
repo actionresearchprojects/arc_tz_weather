@@ -2003,8 +2003,24 @@ const DATA_FILTER_VAR_ORDER = ['temp','humidity','avgWind','peakWind','solar','p
 const FILTER_SUPPORTED_CHARTS = new Set([
   'wind-rose','wind-distribution','solar-distribution','driving-rain','wind-rain',
   'solar-wind','ventilation-windows','wind-category-dist',
+  'wind-timeseries','solar-timeseries','gust-factor',
+  'avg-wind-profiles','avg-solar-profiles','avg-rainfall-profiles',
 ]);
 function chartSupportsFilter(ct){ return FILTER_SUPPORTED_CHARTS.has(ct); }
+
+// x_ms-path charts that need a passing-timestamp set built from raw data for filtering.
+// (Different from _RAW_BUILDERS which rebuild the chart fully from scratch in JS.)
+const FILTER_XMSCHARTS = new Set(['wind-timeseries','solar-timeseries','gust-factor']);
+
+// Sensible per-variable default values when a new filter row is added.
+const DATA_FILTER_DEFAULTS = {
+  temp:      32,    // °C — hot threshold
+  humidity:  70,    // % — noticeably humid
+  avgWind:   10,    // km/h — light breeze (useful for cross-ventilation)
+  peakWind:  15,    // km/h
+  solar:     500,   // W/m² — strong midday sun
+  precipRate: 2.5,  // mm/h — light rain threshold
+};
 
 let _dataFilterIdCounter = 0;
 
@@ -2074,7 +2090,8 @@ function _showNoData(){
 
 // ── Data filter UI ────────────────────────────────────────────────────────────
 function addDataFilter(){
-  state.dataFilters.push({id: ++_dataFilterIdCounter, var:'temp', op:'ge', v1:32, v2:null});
+  const varKey = 'temp';
+  state.dataFilters.push({id: ++_dataFilterIdCounter, var:varKey, op:'ge', v1:DATA_FILTER_DEFAULTS[varKey], v2:null});
   renderDataFilters(); updatePlot();
 }
 function removeDataFilter(id){
@@ -2111,8 +2128,9 @@ function _renderDataFilterRow(f){
   });
   varSel.value = f.var;
   varSel.addEventListener('change', () => {
-    f.var = varSel.value; const mm = DATA_FILTER_VARS[f.var];
-    if (f.v1 == null || f.v1 < mm.min || f.v1 > mm.max) f.v1 = mm.min;
+    f.var = varSel.value;
+    f.v1 = DATA_FILTER_DEFAULTS[f.var] ?? DATA_FILTER_VARS[f.var].min;
+    f.v2 = null;
     renderDataFilters(); updatePlot();
   });
 
@@ -3287,14 +3305,22 @@ function updatePlot() {
   }
   const {start: rngStart, end: rngEnd} = getTimeRange();
 
+  // For x_ms-path charts that support filtering, build a set of passing timestamps.
+  let _xmsPassingTs = null;
+  if (getActiveDataFilters().length > 0 && FILTER_XMSCHARTS.has(ct)) {
+    const _fraw = applyDataFilter(filterRaw(rngStart, rngEnd));
+    _xmsPassingTs = _fraw ? new Set(_fraw.ts) : new Set();
+    if (_xmsPassingTs.size === 0) { updateSidebarControls(); _showNoData(); updateStatsPanel(); return; }
+  }
+
   for (const trace of chartData) {
     const t = Object.assign({}, trace);
 
-    // Convert x_ms timestamps to EAT strings, applying time range filter
+    // Convert x_ms timestamps to EAT strings, applying time range filter + value filter
     if (t.x_ms) {
       const xms = t.x_ms;
       const keys = Object.keys(t).filter(k => k !== 'x_ms' && Array.isArray(t[k]) && t[k].length === xms.length);
-      const mask = xms.map(ms => ms >= rngStart && ms <= rngEnd);
+      const mask = xms.map(ms => ms >= rngStart && ms <= rngEnd && (_xmsPassingTs === null || _xmsPassingTs.has(ms)));
       t.x = xms.filter((_, i) => mask[i]).map(ms => toEATString(ms));
       keys.forEach(k => { t[k] = t[k].filter((_, i) => mask[i]); });
       delete t.x_ms;
@@ -3607,8 +3633,15 @@ function renderPeriodicAverages() {
   const totCounts = new Int32Array(nCats);
 
   const {start: paRngStart, end: paRngEnd} = getTimeRange();
+  // Value filter: build passing-timestamp set from raw data if any filters are active.
+  let _paPassingTs = null;
+  if (getActiveDataFilters().length > 0) {
+    const _paRaw = applyDataFilter(filterRaw(paRngStart, paRngEnd));
+    _paPassingTs = _paRaw ? new Set(_paRaw.ts) : new Set();
+  }
   for (let i = 0; i < x_ms.length; i++) {
     if (x_ms[i] < paRngStart || x_ms[i] > paRngEnd) continue;
+    if (_paPassingTs !== null && !_paPassingTs.has(x_ms[i])) continue;
     const ci = getCategoryIdx(x_ms[i]);
     if (ci < 0 || ci >= nCats) continue;
     const v = vals[i];
