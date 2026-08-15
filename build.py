@@ -485,6 +485,9 @@ label{font-size:12px}
 #download-btn{padding:4px 10px;font-size:12px;border:none;border-radius:4px;cursor:pointer;background:#28a745;color:white;font-weight:500;white-space:nowrap}
 #download-btn:hover{background:#218838}
 #download-btn:disabled{opacity:0.6;cursor:default}
+#download-menu{padding:4px 8px;font-size:12px;border:none;border-radius:4px;cursor:pointer;background:#28a745;color:white;font-weight:500;white-space:nowrap}
+#download-menu:hover{background:#218838}
+#download-menu:disabled{opacity:0.6;cursor:default}
 #dl-spinner{display:none;width:16px;height:16px;border:2px solid rgba(40,167,69,0.3);border-top-color:#28a745;border-radius:50%;animation:dlspin 0.7s linear infinite;flex-shrink:0}
 @keyframes dlspin{to{transform:rotate(360deg)}}
 #lang-wrap { position: relative; flex-shrink: 0; }
@@ -882,7 +885,12 @@ optgroup{font-weight:600;font-style:normal}
           <div id="month-input" class="hidden"><select id="month-select"></select></div>
           <div id="week-input" class="hidden"><select id="week-select"></select></div>
           <div id="day-input" class="hidden"><select id="day-select"></select></div>
-          <button id="download-btn" data-i18n="downloadPng">Download PNG</button>
+          <select id="download-menu" title="Export">
+            <option value="" data-i18n="downloadMenu">Download…</option>
+            <option value="png" data-i18n="downloadPng">Download PNG</option>
+            <option value="csv" data-i18n="downloadCsv">Export CSV</option>
+          </select>
+          <button id="download-btn" data-i18n="downloadPng" style="display:none">Download PNG</button>
           <div id="dl-spinner"></div>
         </div>
       </div>
@@ -978,6 +986,8 @@ const I18N = {
     from: 'From ',
     to: 'To ',
     downloadPng: 'Download PNG',
+    downloadMenu: 'Download\u2026',
+    downloadCsv: 'Export CSV',
     windGroup: 'Wind',
     solarGroup: 'Solar',
     precipGroup: 'Precipitation',
@@ -1083,6 +1093,8 @@ const I18N = {
     from: 'Kutoka ',
     to: 'Hadi ',
     downloadPng: 'Pakua PNG',
+    downloadMenu: 'Pakua\u2026',
+    downloadCsv: 'Hamisha CSV',
     windGroup: 'Upepo',
     solarGroup: 'Jua',
     precipGroup: 'Mvua',
@@ -3966,8 +3978,123 @@ function svgToCanvas(svgStr, W, H, scale) {
   });
 }
 
+// ── Chart data export ────────────────────────────────────────────────────────
+// Exports exactly what is plotted right now, for the period currently selected.
+// Reads the traces back off the chart element rather than from any particular
+// render function, so it stays correct for every chart type.
+
+function csvField(v) {
+  const s = String(v == null ? '' : v);
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+function axisLabelText(ax) {
+  const tt = ax && ax.title;
+  const s = typeof tt === 'string' ? tt : (tt && tt.text) || '';
+  return s.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+}
+
+// Legend entries are drawn as traces holding a single null point, and threshold
+// bands carry no data worth exporting.
+function visibleDataTraces(traces) {
+  return traces.filter(tr => {
+    if (tr.visible === false || tr.visible === 'legendonly') return false;
+    if (tr.type === 'table') return false;
+    const n = Math.max((tr.x && tr.x.length) || 0, (tr.y && tr.y.length) || 0);
+    if (n === 0) return false;
+    const xNull = !tr.x || tr.x.every(v => v == null);
+    const yNull = !tr.y || tr.y.every(v => v == null);
+    if (xNull && yNull) return false;
+    return true;
+  });
+}
+
+function chartCsvText() {
+  const el = document.getElementById('chart');
+  const traces = visibleDataTraces((el && el.data) || []);
+  const layout = (el && el.layout) || {};
+  if (traces.length === 0) return null;
+
+  const xLabel = axisLabelText(layout.xaxis) || 'X';
+  const yLabel = axisLabelText(layout.yaxis) || 'Value';
+  const names = traces.map((tr, i) =>
+    (tr.name ? String(tr.name).replace(/<[^>]*>/g, '').trim() : '') || ('Series ' + (i + 1)));
+
+  const lines = [];
+  const titleEl = document.getElementById('bar-title');
+  if (titleEl && titleEl.textContent) lines.push(csvField(titleEl.textContent));
+  lines.push(['Exported', new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC'].map(csvField).join(','));
+  lines.push('');
+
+  // A shared x-axis (timestamps, categories) pivots into one column per series,
+  // which is what a spreadsheet wants. Scatter and histogram data have no shared
+  // x, so those fall back to one row per point.
+  const canPivot = traces.every(tr =>
+    tr.x && tr.y && tr.x.length === tr.y.length && tr.x.every(v => v == null || typeof v === 'string'));
+
+  if (canPivot) {
+    const rows = new Map();
+    traces.forEach((tr, ti) => {
+      for (let i = 0; i < tr.x.length; i++) {
+        const k = tr.x[i];
+        if (k == null) continue;
+        let row = rows.get(k);
+        if (!row) { row = new Array(traces.length).fill(''); rows.set(k, row); }
+        row[ti] = tr.y[i] == null ? '' : tr.y[i];
+      }
+    });
+    let keys = [...rows.keys()];
+    // Timestamps sort chronologically; category axes keep the plotted order.
+    if (keys.every(k => !isNaN(Date.parse(k)))) keys.sort((a, b) => Date.parse(a) - Date.parse(b));
+    lines.push([xLabel, ...names].map(csvField).join(','));
+    for (const k of keys) lines.push([k, ...rows.get(k)].map(csvField).join(','));
+  } else {
+    lines.push(['Series', xLabel, yLabel].map(csvField).join(','));
+    traces.forEach((tr, ti) => {
+      const n = Math.max((tr.x && tr.x.length) || 0, (tr.y && tr.y.length) || 0);
+      for (let i = 0; i < n; i++) {
+        const xv = tr.x ? tr.x[i] : '';
+        const yv = tr.y ? tr.y[i] : '';
+        if (xv == null && yv == null) continue;
+        lines.push([names[ti], xv == null ? '' : xv, yv == null ? '' : yv].map(csvField).join(','));
+      }
+    });
+  }
+  return lines.join('\n');
+}
+
+function triggerCsvDownload(text, filename) {
+  // BOM so Excel reads the degree and delta symbols as UTF-8.
+  const blob = new Blob(['﻿' + text], {type: 'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// The title bar already names the dataset, chart and period, which makes it the
+// natural basis for the filename.
+function csvFilename() {
+  const titleEl = document.getElementById('bar-title');
+  const slug = s => s.replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 90);
+  const base = titleEl && titleEl.textContent ? slug(titleEl.textContent) : 'chart';
+  const n = new Date(), p = v => String(v).padStart(2, '0');
+  const ts = `${n.getFullYear()}${p(n.getMonth() + 1)}${p(n.getDate())}_${p(n.getHours())}${p(n.getMinutes())}`;
+  return `ARC_${base}_${ts}.csv`;
+}
+
+function exportChartCsv() {
+  const text = chartCsvText();
+  if (!text) return;
+  triggerCsvDownload(text, csvFilename());
+}
+
+function exportCurrentCsv() { exportChartCsv(); }
+
 // ── Download PNG ─────────────────────────────────────────────────────────────
-document.getElementById('download-btn').addEventListener('click', () => {
+// Renders the current chart to PNG. Invoked from the export menu.
+function downloadChartPng() {
   const btn = document.getElementById('download-btn');
   const spinner = document.getElementById('dl-spinner');
   function dlStart() { btn.disabled = true; spinner.style.display = 'inline-block'; }
@@ -4015,6 +4142,14 @@ document.getElementById('download-btn').addEventListener('click', () => {
     injectSVGWatermark(doc, W, H, 1.0);
     return svgToCanvas(new XMLSerializer().serializeToString(doc), W, H, scale);
   }).then(canvasToPNG).catch(dlDone);
+}
+
+// Export menu: acts on selection, then returns to its placeholder label.
+document.getElementById('download-menu').addEventListener('change', function() {
+  const choice = this.value;
+  this.selectedIndex = 0;
+  if (choice === 'png') downloadChartPng();
+  else if (choice === 'csv') exportCurrentCsv();
 });
 
 // ── Event Handlers ───────────────────────────────────────────────────────────
