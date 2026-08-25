@@ -172,16 +172,19 @@ The implementation uses a 3x3 lookup table of ΔCp values (three shielding condi
 **Derivation from TN44:**
 
 *Direct (0° wind angle):* Windward face (face 1 at 0°) minus leeward face (face 3 at 0°).
+
 - Exposed (Table 3.5 i): +0.70 minus (−0.50) = **1.20**
 - Suburban (Table 3.5 ii): +0.40 minus (−0.30) = **0.70**
 - Urban (Table 3.5 iii): +0.20 minus (−0.25) = **0.45**
 
 *Diagonal (45° wind angle):* Windward face (face 1 at 45°) minus the adjacent side face (face 4 at 45°). With wind at 45°, the outlet is the side face most nearly leeward.
+
 - Exposed: +0.35 minus (−0.40) = **0.75**
 - Suburban: +0.10 minus (−0.35) = **0.45**
 - Urban: +0.05 minus (−0.30) = **0.35**
 
 *Side-on (90° to the inlet window):* Wind blows parallel to the inlet window plane. Pressure differences arise from the separation of flow around the building corners, creating a small but non-zero ΔP between the two side faces.
+
 - Exposed: −0.20 minus (−0.50) = **0.30**
 - Suburban: −0.20 minus (−0.30) = **0.10**
 - Urban: −0.25 minus (−0.25) = approximately 0 (clamped to **0.05** to avoid numerical collapse)
@@ -247,6 +250,7 @@ A custom category system allows the user to define their own threshold values in
 The indoor ventilation overlay shows, for each outdoor wind speed category, the mean indoor air speed (in m/s) calculated from all the actual measured outdoor wind readings that fall within that category. A vertical line or pair of lines is drawn at the horizontal position corresponding to that mean indoor speed.
 
 When reduction layers are active, two bounds are shown:
+
 - A solid line for the optimistic bound (best-case transmission through all active layers)
 - A dotted line for the conservative bound (worst-case transmission through all active layers)  
 - A hatched green fill between the two bounds
@@ -272,6 +276,7 @@ The secondary x-axis at the top of the chart shows indoor air speed in m/s. This
 **Step 3:** Cross-section = √25 × 3.2 = 5 × 3.2 = 16 m². v_indoor = 1.67 / 16 = **0.104 m/s**
 
 **Step 4 (layers):** Assuming mosquito mesh + perforated screen are active:
+
 - Optimistic: 0.104 × 0.48 × 0.65 = **0.032 m/s**
 - Conservative: 0.104 × 0.36 × 0.45 = **0.017 m/s**
 
