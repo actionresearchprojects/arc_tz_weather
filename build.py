@@ -1079,6 +1079,7 @@ const I18N = {
     // Data freshness
     dataUpdated: 'Data updated',
     staleWarning: 'Data may be stale (older than 2 days)',
+    sensorStaleWarning: 'Weather station has not reported a new reading recently; it may be offline',
   },
   sw: {
     title: 'ARC Tanzania - Kituo cha Hali ya Hewa',
@@ -1139,6 +1140,7 @@ const I18N = {
     evWindDir: 'Mwelekeo wa Upepo',
     dataUpdated: 'Data imesasishwa',
     staleWarning: 'Data inaweza kuwa ya zamani (zaidi ya siku 2)',
+    sensorStaleWarning: 'Kituo cha hali ya hewa hakijatoa usomaji mpya hivi karibuni; huenda kimezimika',
     // Periodic controls
     periodSettings: 'Mipangilio ya Kipindi',
     cycle: 'Mzunguko',
@@ -3885,6 +3887,13 @@ function updateDataFreshness() {
       const d = fetchDate.getUTCDate();
       const suffix = (d === 1 || d === 21 || d === 31) ? 'st' : (d === 2 || d === 22) ? 'nd' : (d === 3 || d === 23) ? 'rd' : 'th';
       fetchDateDisplay = d + suffix + ' ' + months[fetchDate.getUTCMonth()] + ' ' + fetchDate.getUTCFullYear();
+    }
+  }
+  if (df.dateMax) {
+    const lastReading = new Date(df.dateMax.replace(' ', 'T'));
+    const diffDays = (new Date() - lastReading) / DAY_MS;
+    if (diffDays > 2) {
+      warnHtml += ' <span class="stale-warn" title="' + t('sensorStaleWarning') + '">⚠</span>';
     }
   }
   lines.push('Omnisense last updated: ' + fetchDateDisplay + warnHtml);
