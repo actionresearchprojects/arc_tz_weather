@@ -50,7 +50,7 @@ jobs:
             echo "::warning::New CSV missing weather station data; keeping previous CSV"
           fi
           ls -la data/omnisense/
-          # Copy cycle data (ENSO/IOD/MJO) — arc_tz_temp_humid fetches these daily
+          # Copy cycle data (ENSO/IOD/MJO) - arc_tz_temp_humid fetches these daily
           mkdir -p data/cycles/enso data/cycles/iod data/cycles/mjo
           cp /tmp/temp_humid/data/cycles/enso/oni.csv data/cycles/enso/ 2>/dev/null || true
           cp /tmp/temp_humid/data/cycles/iod/iod_1.txt data/cycles/iod/ 2>/dev/null || true

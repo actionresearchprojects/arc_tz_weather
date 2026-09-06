@@ -485,7 +485,7 @@ def insert_gap_breaks(timestamps_ms, *value_lists, gap_ms=1_800_000, fill_value=
         fill_value:    value to insert at gap edges; None inserts a null for line breaks.
 
     Returns:
-        (new_timestamps_ms, new_values1, new_values2, ...) — same structure, longer.
+        (new_timestamps_ms, new_values1, new_values2, ...) - same structure, longer.
     """
     if not timestamps_ms:
         return (timestamps_ms,) + value_lists
@@ -654,7 +654,7 @@ def build_available_periods(df):
             m_first = _MONTH_ABBR[SEASONS[s_idx]['months'][0] - 1]
             m_last  = _MONTH_ABBR[SEASONS[s_idx]['months'][-1] - 1]
             seasons.append({
-                "label": f"{s_name} ({m_first}\u2013{m_last}) {d.year}",
+                "label": f"{s_name} ({m_first}-{m_last}) {d.year}",
                 "year": d.year, "season": s_idx
             })
 

@@ -125,7 +125,7 @@ For example, a 25 m² room is treated as 5 m × 5 m. With a ceiling height of 3.
 
 Multiple reduction layers can be applied sequentially to model the cumulative effect of different airflow-reducing elements such as mosquito mesh, perforated screens, and ventilation blinds. Each layer's reduction is applied multiplicatively to the result of the previous layer, not to the original outdoor speed.
 
-**Compounding logic:** If mosquito mesh reduces airflow by 52–64% (multiplier 0.48–0.36) and a perforated screen reduces by an additional 35–55% (multiplier 0.65–0.45), the combined effect is:
+**Compounding logic:** If mosquito mesh reduces airflow by 52-64% (multiplier 0.48-0.36) and a perforated screen reduces by an additional 35-55% (multiplier 0.65-0.45), the combined effect is:
 
 `v_final = v_indoor × 0.48 × 0.65 = v_indoor × 0.312` (optimistic)  
 `v_final = v_indoor × 0.36 × 0.45 = v_indoor × 0.162` (conservative)
@@ -136,11 +136,11 @@ This approach reflects the physical reality that each obstruction reduces the al
 
 | Layer Type | Optimistic | Conservative | Empirical Support |
 |---|---|---|---|
-| **Mosquito Mesh** | 0.48 | 0.36 | **Yes** — von Seidlein et al. (2012) |
-| **Perforated Screen** | 0.65 | 0.45 | **No** — indicative only |
-| **Ventilation Blind** | 0.70 | 0.50 | **No** — indicative only |
+| **Mosquito Mesh** | 0.48 | 0.36 | **Yes** - von Seidlein et al. (2012) |
+| **Perforated Screen** | 0.65 | 0.45 | **No** - indicative only |
+| **Ventilation Blind** | 0.70 | 0.50 | **No** - indicative only |
 
-**Mosquito mesh values** are derived from von Seidlein et al. (2012) — "Airflow attenuation and bed net utilization: observations from Africa and Asia", *Malaria Journal* 11:200. Field measurements in 20 real households found mean 52% reduction (0.48 transmission). Wind tunnel experiments with 11 bed nets found mean 64% reduction (0.36 transmission, range 55–71%).
+**Mosquito mesh values** are derived from von Seidlein et al. (2012) - "Airflow attenuation and bed net utilization: observations from Africa and Asia", *Malaria Journal* 11:200. Field measurements in 20 real households found mean 52% reduction (0.48 transmission). Wind tunnel experiments with 11 bed nets found mean 64% reduction (0.36 transmission, range 55-71%).
 
 **Other layer values** are illustrative placeholders based on typical porosity and obstruction patterns. These require empirical validation before use in production applications.
 
@@ -280,7 +280,7 @@ The secondary x-axis at the top of the chart shows indoor air speed in m/s. This
 - Optimistic: 0.104 × 0.48 × 0.65 = **0.032 m/s**
 - Conservative: 0.104 × 0.36 × 0.45 = **0.017 m/s**
 
-At 10 km/h outdoor wind (a moderate reading for this site), a room with these characteristics and two reduction layers would experience roughly 0.017 to 0.032 m/s of mean indoor air speed — well below the 0.1 m/s perceptibility threshold.
+At 10 km/h outdoor wind (a moderate reading for this site), a room with these characteristics and two reduction layers would experience roughly 0.017 to 0.032 m/s of mean indoor air speed - well below the 0.1 m/s perceptibility threshold.
 
 ---
 
@@ -298,7 +298,7 @@ At 10 km/h outdoor wind (a moderate reading for this site), a room with these ch
 
 **6. Square floor plan assumed.** The formula treats the room as square in plan. A rectangular room with a narrow face toward the inlet window would have a smaller cross-section and higher actual mean speed; one with a wide face would have a larger cross-section and lower speed.
 
-**7. Layer reduction factors have varying empirical support.** Mosquito mesh values (0.36–0.48) are derived from von Seidlein et al. (2012), but those measurements used bed nets draped over sleeping areas, not fixed window mesh screens. Values for perforated screens and ventilation blinds are indicative only and require empirical validation. Layer density, condition, installation quality, and interaction effects all affect actual attenuation.
+**7. Layer reduction factors have varying empirical support.** Mosquito mesh values (0.36-0.48) are derived from von Seidlein et al. (2012), but those measurements used bed nets draped over sleeping areas, not fixed window mesh screens. Values for perforated screens and ventilation blinds are indicative only and require empirical validation. Layer density, condition, installation quality, and interaction effects all affect actual attenuation.
 
 **8. Wind direction not modelled.** The selected ΔCp is applied uniformly to all outdoor wind speed readings regardless of actual wind direction at each timestep. In reality, the ventilation effectiveness varies with wind direction relative to the window. The "wind direction to window" setting is a fixed orientation assumption applied across the entire dataset.
 
@@ -310,38 +310,38 @@ At 10 km/h outdoor wind (a moderate reading for this site), a room with these ch
 
 ## References
 
-References marked **[verified]** have been checked against the primary source. Those marked **[unverified — check before citing]** were compiled via literature review and their details (title, volume, page numbers) should be confirmed before formal use.
+References marked **[verified]** have been checked against the primary source. Those marked **[unverified - check before citing]** were compiled via literature review and their details (title, volume, page numbers) should be confirmed before formal use.
 
 ### Standards and technical guidance
 
-Orme, M., Liddament, M.W., and Wilson, A. (1998). *Numerical Data for Air Infiltration and Natural Ventilation Calculations.* Air Infiltration and Ventilation Centre, Technical Note AIVC 44. Coventry, UK. **[verified]** — source of the ΔCp lookup table (Tables 3.5 i–iii).
+Orme, M., Liddament, M.W., and Wilson, A. (1998). *Numerical Data for Air Infiltration and Natural Ventilation Calculations.* Air Infiltration and Ventilation Centre, Technical Note AIVC 44. Coventry, UK. **[verified]** - source of the ΔCp lookup table (Tables 3.5 i-iii).
 
-ASHRAE (2017). *ASHRAE Standard 55-2017: Thermal Environmental Conditions for Human Occupancy.* American Society of Heating, Refrigerating and Air-Conditioning Engineers, Atlanta. **[verified]** — source of indoor wind speed comfort thresholds.
+ASHRAE (2017). *ASHRAE Standard 55-2017: Thermal Environmental Conditions for Human Occupancy.* American Society of Heating, Refrigerating and Air-Conditioning Engineers, Atlanta. **[verified]** - source of indoor wind speed comfort thresholds.
 
-CIBSE (2005). *AM10: Natural Ventilation in Non-Domestic Buildings.* Chartered Institution of Building Services Engineers, London. **[unverified — check before citing]** — methodology for discharge coefficients and opening calculations; Cd = 0.6 for sharp-edged rectangular openings.
+CIBSE (2005). *AM10: Natural Ventilation in Non-Domestic Buildings.* Chartered Institution of Building Services Engineers, London. **[unverified - check before citing]** - methodology for discharge coefficients and opening calculations; Cd = 0.6 for sharp-edged rectangular openings.
 
-Idelchik, I.E. (1986). *Handbook of Hydraulic Resistance*, 2nd ed. Hemisphere Publishing, Washington DC. **[unverified — check before citing]** — discharge coefficients for mesh types, referenced via CIBSE AM10.
+Idelchik, I.E. (1986). *Handbook of Hydraulic Resistance*, 2nd ed. Hemisphere Publishing, Washington DC. **[unverified - check before citing]** - discharge coefficients for mesh types, referenced via CIBSE AM10.
 
 ### Mosquito mesh attenuation
 
-Von Seidlein, L., et al. (2012). Airflow attenuation and bed net utilization: observations from Africa and Asia. *Malaria Journal*, 11:200. **[verified]** — primary empirical source for the 50–65% velocity reduction (transmission 35–50%) used in Step 4.
+Von Seidlein, L., et al. (2012). Airflow attenuation and bed net utilization: observations from Africa and Asia. *Malaria Journal*, 11:200. **[verified]** - primary empirical source for the 50-65% velocity reduction (transmission 35-50%) used in Step 4.
 
-Valera, D.L., Molina-Aiz, F.D., and Álvarez, A.J. (2006). Aerodynamic analysis of several insect-proof screens used in greenhouses. *Spanish Journal of Agricultural Research*, 4(4), 273–279. **[unverified — check before citing]** — aerodynamic characterisation of agricultural insect screens; context for mesh pressure-loss behaviour.
+Valera, D.L., Molina-Aiz, F.D., and Álvarez, A.J. (2006). Aerodynamic analysis of several insect-proof screens used in greenhouses. *Spanish Journal of Agricultural Research*, 4(4), 273-279. **[unverified - check before citing]** - aerodynamic characterisation of agricultural insect screens; context for mesh pressure-loss behaviour.
 
-Peña, A., et al. (2016). Wind tunnel analysis of the airflow through insect-proof screens and comparison of their effect when installed in a Mediterranean greenhouse. *Sensors*, 16(5), 690. **[unverified — check before citing]** — screen aerodynamics under controlled conditions.
+Peña, A., et al. (2016). Wind tunnel analysis of the airflow through insect-proof screens and comparison of their effect when installed in a Mediterranean greenhouse. *Sensors*, 16(5), 690. **[unverified - check before citing]** - screen aerodynamics under controlled conditions.
 
-Flores-Velázquez, J., et al. (2016). Aerodynamic characteristics of anti-insect mesh windows used in greenhouses in Mexico. *AGROCIENCIA*, 50(3), 493–510. **[unverified — check before citing]** — regional variation in mesh aerodynamic performance.
+Flores-Velázquez, J., et al. (2016). Aerodynamic characteristics of anti-insect mesh windows used in greenhouses in Mexico. *AGROCIENCIA*, 50(3), 493-510. **[unverified - check before citing]** - regional variation in mesh aerodynamic performance.
 
-Miguel, A.F., Van de Braak, N.J., Silva, A.M., and Bot, G.P.A. (1997). Analysis of airflow characteristics of greenhouse screening materials. *Journal of Agricultural Engineering Research*, 67, 105–112. **[unverified — check before citing]** — foundational study of screen pressure-loss coefficients.
+Miguel, A.F., Van de Braak, N.J., Silva, A.M., and Bot, G.P.A. (1997). Analysis of airflow characteristics of greenhouse screening materials. *Journal of Agricultural Engineering Research*, 67, 105-112. **[unverified - check before citing]** - foundational study of screen pressure-loss coefficients.
 
-Linker, R., Tarnopolsky, M., and Seginer, I. (2002). Increased resistance to flow and improved visual properties of insect-proof screens achieved by inclining them from the vertical. *Transactions of the ASAE*, 45(5). **[unverified — check before citing]** — screen pressure-loss coefficient as affected by dust and flow direction.
+Linker, R., Tarnopolsky, M., and Seginer, I. (2002). Increased resistance to flow and improved visual properties of insect-proof screens achieved by inclining them from the vertical. *Transactions of the ASAE*, 45(5). **[unverified - check before citing]** - screen pressure-loss coefficient as affected by dust and flow direction.
 
 ### Comfort and draught
 
-Fanger, P.O. and Christensen, N.K. (1986). Perception of draught in ventilated spaces. *Ergonomics*, 29(2), 215–235. **[unverified — check before citing]** — basis for draught rating thresholds.
+Fanger, P.O. and Christensen, N.K. (1986). Perception of draught in ventilated spaces. *Ergonomics*, 29(2), 215-235. **[unverified - check before citing]** - basis for draught rating thresholds.
 
-Lawson, T.V. (1978). The wind content of the built environment. *Journal of Wind Engineering and Industrial Aerodynamics*, 3(2), 93–105. **[unverified — check before citing]** — original formulation of the Lawson pedestrian comfort criteria.
+Lawson, T.V. (1978). The wind content of the built environment. *Journal of Wind Engineering and Industrial Aerodynamics*, 3(2), 93-105. **[unverified - check before citing]** - original formulation of the Lawson pedestrian comfort criteria.
 
 ### Wind tunnel data underlying TN44
 
-Wiren, B.G. (1985). *A wind tunnel study of wind velocities in passages between and through buildings.* Proceedings of the 4th Colloquium on Industrial Aerodynamics, Aachen. **[unverified — check before citing]** — primary wind tunnel dataset used in TN44 Cp tables.
+Wiren, B.G. (1985). *A wind tunnel study of wind velocities in passages between and through buildings.* Proceedings of the 4th Colloquium on Industrial Aerodynamics, Aachen. **[unverified - check before citing]** - primary wind tunnel dataset used in TN44 Cp tables.

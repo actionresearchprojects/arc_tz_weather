@@ -70,7 +70,7 @@ def main():
     start_mdy = to_mdy(start_date)
     end_mdy   = to_mdy(today_str)
 
-    print(f"Omnisense fetch — {now_utc.strftime('%Y-%m-%d %H:%M UTC')}")
+    print(f"Omnisense fetch - {now_utc.strftime('%Y-%m-%d %H:%M UTC')}")
     print(f"  Date range: {start_date} → {today_str}")
     print(f"  Form dates (m/d/yyyy): {start_mdy} → {end_mdy}")
 
@@ -92,7 +92,7 @@ def main():
         print(f"ERROR: Login failed (HTTP {resp.status_code})", file=sys.stderr)
         sys.exit(1)
     if "User Log-In" in resp.text and "userId" in resp.text:
-        print("ERROR: Login returned login page – invalid credentials or session issue.", file=sys.stderr)
+        print("ERROR: Login returned login page - invalid credentials or session issue.", file=sys.stderr)
         sys.exit(1)
     print("  Login successful.")
 
@@ -132,7 +132,7 @@ def main():
         Path("dnld_rqst5_response.html").write_text(resp.text, encoding="utf-8")
         print("  Saved response HTML to dnld_rqst5_response.html")
 
-    # Parse download link – handles escaped quotes like go(\'/path/file.csv\')
+    # Parse download link - handles escaped quotes like go(\'/path/file.csv\')
     match = re.search(r"go\(\s*\\'([^']+)\\'\)", resp.text)
     if not match:
         # Also try unescaped version just in case (some servers may not escape)
@@ -154,7 +154,7 @@ def main():
     row_count = row_match.group(1) if row_match else "?"
     print(f"  Download ready: {row_count} rows → {csv_path}")
     if row_count == "0":
-        print("ERROR: Server reports 0 rows of data — export is empty.", file=sys.stderr)
+        print("ERROR: Server reports 0 rows of data - export is empty.", file=sys.stderr)
         sys.exit(1)
 
     # Step 4: Download CSV
@@ -179,7 +179,7 @@ def main():
     # A valid export has a column-header line with "temperature" and "humidity" followed
     # by numeric data rows. An empty export contains only sensor_desc/site_name pairs.
     if "temperature" not in csv_text or "humidity" not in csv_text:
-        print("ERROR: CSV contains no data columns — Omnisense returned an empty export.", file=sys.stderr)
+        print("ERROR: CSV contains no data columns - Omnisense returned an empty export.", file=sys.stderr)
         print(f"  File size: {len(csv_data)} bytes", file=sys.stderr)
         print(f"  Content preview:\n{csv_text[:600]}", file=sys.stderr)
         sys.exit(1)

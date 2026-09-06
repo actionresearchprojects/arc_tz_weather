@@ -1496,7 +1496,7 @@ function statsRow(label, value) {
 // Exact conversion factors (WMO Beaufort definition):
 //   1 kn = 463/250 km/h  (exact)   1 kn = 463/900 m/s  (exact)
 // All conversions are from km/h (sensor native unit) using these ratios.
-// No premature rounding — full IEEE 754 double precision is preserved.
+// No premature rounding - full IEEE 754 double precision is preserved.
 const _KPH_TO_MS = 250 / 900;   // = 5/18 = 1/3.6  (kph × 250/463 × 463/900 = kph × 250/900)
 const _KPH_TO_KN = 250 / 463;   // exact WMO ratio
 function wToUnit(kph) {
@@ -1709,7 +1709,7 @@ function _wrSliderBuildSteps() {
   const steps = [];
   const stepEnds = [];
   if (gran >= 2592000000) {
-    // Calendar-month-aligned steps so "Jan 2026" always means Jan 1 – Feb 1 UTC
+    // Calendar-month-aligned steps so "Jan 2026" always means Jan 1 - Feb 1 UTC
     const d0 = new Date(start);
     let y = d0.getUTCFullYear(), mo = d0.getUTCMonth();
     while (Date.UTC(y, mo, 1) < end) {
@@ -1742,7 +1742,7 @@ function _wrSliderDateLabel(ms, gran) {
   const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getUTCMonth()];
   const pad = n => String(n).padStart(2, '0');
   if (gran >= 2592000000) return mo + ' ' + d.getUTCFullYear();
-  if (gran >= 604800000) return d.getUTCDate() + ' ' + mo + ' \u2013 ' + _wrSliderDateLabel(ms + gran, 86400000);
+  if (gran >= 604800000) return d.getUTCDate() + ' ' + mo + ' - ' + _wrSliderDateLabel(ms + gran, 86400000);
   if (gran >= 86400000) return d.getUTCDate() + ' ' + mo + ' ' + d.getUTCFullYear();
   return d.getUTCDate() + ' ' + mo + ' ' + pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes());
 }
@@ -1755,7 +1755,7 @@ function _wrSliderRender(animate) {
 
   // Display date/time label
   if (gran < 86400000) {
-    document.getElementById('wr-sl-date').textContent = _wrSliderDateLabel(winStart, gran) + ' \u2013 ' + _wrSliderDateLabel(winEnd, gran);
+    document.getElementById('wr-sl-date').textContent = _wrSliderDateLabel(winStart, gran) + ' - ' + _wrSliderDateLabel(winEnd, gran);
   } else {
     document.getElementById('wr-sl-date').textContent = _wrSliderDateLabel(winStart, gran);
   }
@@ -1946,12 +1946,12 @@ const FILTER_XMSCHARTS = new Set(['wind-timeseries','solar-timeseries','gust-fac
 
 // Sensible per-variable default values when a new filter row is added.
 const DATA_FILTER_DEFAULTS = {
-  temp:      32,    // °C — hot threshold
-  humidity:  70,    // % — noticeably humid
-  avgWind:   10,    // km/h — light breeze (useful for cross-ventilation)
+  temp:      32,    // °C - hot threshold
+  humidity:  70,    // % - noticeably humid
+  avgWind:   10,    // km/h - light breeze (useful for cross-ventilation)
   peakWind:  15,    // km/h
-  solar:     500,   // W/m² — strong midday sun
-  precipRate: 2.5,  // mm/h — light rain threshold
+  solar:     500,   // W/m² - strong midday sun
+  precipRate: 2.5,  // mm/h - light rain threshold
 };
 
 let _dataFilterIdCounter = 0;
@@ -1997,7 +1997,7 @@ function _dfSummary(active, combine){
   const join = combine === 'any' ? ' OR ' : ' AND ';
   return active.map(f => {
     const m = DATA_FILTER_VARS[f.var]; const u = m ? m.unit : ''; const name = m ? m.label : f.var;
-    if (f.op === 'between') return name + ' ' + f.v1 + '–' + f.v2 + u;
+    if (f.op === 'between') return name + ' ' + f.v1 + '-' + f.v2 + u;
     return name + (f.op === 'ge' ? ' ≥ ' : ' ≤ ') + f.v1 + u;
   }).join(join);
 }
@@ -2098,7 +2098,7 @@ function _renderDataFilterRow(f){
   row.appendChild(varSel); row.appendChild(opSel);
   row.appendChild(mkVal(() => f.v1, v => f.v1 = v));
   if (f.op === 'between'){
-    const dash = document.createElement('span'); dash.textContent='–'; dash.style.cssText='font-size:11px;color:#666';
+    const dash = document.createElement('span'); dash.textContent='-'; dash.style.cssText='font-size:11px;color:#666';
     row.appendChild(dash);
     row.appendChild(mkVal(() => f.v2, v => f.v2 = v));
   }
@@ -2471,7 +2471,7 @@ function _buildArcDiag() {
   // Calm shading
   traces.push({type:'scatter', mode:'lines', x:[0,calmHi,calmHi,0,0], y:[0,0,ymax,ymax,0],
     fill:'toself', fillcolor:'rgba(180,180,180,0.2)', line:{width:0},
-    name:'Calm (0–0.1 m/s)', hoverinfo:'skip', showlegend:true});
+    name:'Calm (0-0.1 m/s)', hoverinfo:'skip', showlegend:true});
 
   // Calm boundary line
   traces.push({type:'scatter', mode:'lines', x:[calmHi,calmHi], y:[0,ymax],
@@ -2558,7 +2558,7 @@ function _buildWindCategoryDist(raw) {
     bands = arcBands.map((b, i) => {
       const lo = b.lo_kph, hi = b.hi_kph == null ? Infinity : b.hi_kph;
       const lbl = i === 0 ? 'Calm'
-        : (hi === Infinity ? fmtKph(lo)+'+ '+wLabel() : fmtKph(lo)+'–'+fmtKph(hi)+' '+wLabel());
+        : (hi === Infinity ? fmtKph(lo)+'+ '+wLabel() : fmtKph(lo)+'-'+fmtKph(hi)+' '+wLabel());
       return {label: lbl, lo_kph: lo, hi_kph: hi};
     });
   } else {
@@ -2576,7 +2576,7 @@ function _buildWindCategoryDist(raw) {
   const isPct = _isPercentMode(), xTitle = _getDenomLabel();
   function fmtRange(b) {
     if (b.hi_kph===Infinity) return fmtKph(b.lo_kph)+'+\u202f'+wLabel();
-    return fmtKph(b.lo_kph)+'\u2013'+fmtKph(b.hi_kph)+'\u202f'+wLabel();
+    return fmtKph(b.lo_kph)+'-'+fmtKph(b.hi_kph)+'\u202f'+wLabel();
   }
   function fmtDuration(val) {
     const u = state.windCatValueUnit || 'pct';
@@ -2715,12 +2715,12 @@ function _buildWindCategoryDist(raw) {
         line: {color: '#2ca02c', width: 1.5, dash: 'dot'},
       });
       traceData.push({
-        type: 'scatter', mode: 'lines', name: 'Indoor — optimistic (m/s)',
+        type: 'scatter', mode: 'lines', name: 'Indoor - optimistic (m/s)',
         x: [null], y: [null], yaxis: 'y2', xaxis: 'x2',
         line: {color: '#2ca02c', width: 2.5}, showlegend: true,
       });
       traceData.push({
-        type: 'scatter', mode: 'lines', name: 'Indoor — conservative (m/s)',
+        type: 'scatter', mode: 'lines', name: 'Indoor - conservative (m/s)',
         x: [null], y: [null], yaxis: 'y2', xaxis: 'x2',
         line: {color: '#2ca02c', width: 1.5, dash: 'dot'}, showlegend: true,
       });
@@ -2992,7 +2992,7 @@ function applyIndoorVent() {
         const mx  = spds[spds.length - 1];
         const f = (v, factor) => (v * factor).toFixed(3);
         const stats = iv.layers.length > 0
-          ? `Median ${f(p50,iv.reductions.pessimistic)}–${f(p50,iv.reductions.optimistic)}&nbsp;m/s, p90 ${f(p90,iv.reductions.pessimistic)}–${f(p90,iv.reductions.optimistic)}&nbsp;m/s, max ${f(mx,iv.reductions.pessimistic)}–${f(mx,iv.reductions.optimistic)}&nbsp;m/s`
+          ? `Median ${f(p50,iv.reductions.pessimistic)}-${f(p50,iv.reductions.optimistic)}&nbsp;m/s, p90 ${f(p90,iv.reductions.pessimistic)}-${f(p90,iv.reductions.optimistic)}&nbsp;m/s, max ${f(mx,iv.reductions.pessimistic)}-${f(mx,iv.reductions.optimistic)}&nbsp;m/s`
           : `Median ${f(p50,1)}&nbsp;m/s, p90 ${f(p90,1)}&nbsp;m/s, max ${f(mx,1)}&nbsp;m/s`;
         html += `<br><span style="font-size:10px;color:#555">${stats}</span>`;
       }
@@ -3441,15 +3441,15 @@ function getISOWeekStr(ms) {
 const groupByOptions = {
   day:  [{value:'hour', label:'Hour'}, {value:'synoptic', label:'Synoptic Hours'}],
   year: [{value:'month', label:'Month'}, {value:'week', label:'Week'}, {value:'season', label:'Season'}],
-  mjo:  [{value:'phase', label:'Phase (1\u20138)'}],
+  mjo:  [{value:'phase', label:'Phase (1-8)'}],
   iod:  [{value:'phase', label:'Phase (+/\u2212/Neutral)'}],
   enso: [{value:'phase', label:'Phase (Ni\u00f1o/Ni\u00f1a/Neutral)'}],
 };
 
 const oscInfoTexts = {
-  mjo: 'Madden\u2013Julian Oscillation: a tropical weather pattern that circles the globe every 30\u201360 days, modulating rainfall and wind. 8 phases track its position \u2014 Phases 2\u20133 (Indian Ocean) and 4\u20135 (Maritime Continent) are most relevant to East Africa. Weekly RMM phase data; weeks with amplitude < 1.0 are excluded.',
+  mjo: 'Madden-Julian Oscillation: a tropical weather pattern that circles the globe every 30-60 days, modulating rainfall and wind. 8 phases track its position - Phases 2-3 (Indian Ocean) and 4-5 (Maritime Continent) are most relevant to East Africa. Weekly RMM phase data; weeks with amplitude < 1.0 are excluded.',
   iod: 'Indian Ocean Dipole: a sea-surface temperature gradient between the western and eastern Indian Ocean. Positive IOD brings wetter conditions to East Africa; Negative IOD brings drier conditions. Monthly DMI-based phases: Positive, Negative, or Neutral.',
-  enso: 'El Ni\u00f1o\u2013Southern Oscillation: Pacific Ocean temperature cycles affecting global weather. El Ni\u00f1o tends to bring wetter short rains (Vuli) to East Africa; La Ni\u00f1a tends to bring drier conditions. Monthly ONI-based phases: El Ni\u00f1o, La Ni\u00f1a, or Neutral.',
+  enso: 'El Ni\u00f1o-Southern Oscillation: Pacific Ocean temperature cycles affecting global weather. El Ni\u00f1o tends to bring wetter short rains (Vuli) to East Africa; La Ni\u00f1a tends to bring drier conditions. Monthly ONI-based phases: El Ni\u00f1o, La Ni\u00f1a, or Neutral.',
 };
 
 function updatePeriodCycleInfo() {
@@ -3496,7 +3496,7 @@ function renderPeriodicAverages() {
   const pr = state.periodCycle, pg = state.periodGroupBy;
   const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const TZ_SEASON_IDX = [0,0,1,1,1,2,2,2,2,2,3,3];
-  const TZ_SEASON_LABELS = ['Kiangazi (Jan\u2013Feb)','Masika (Mar\u2013May)','Kiangazi (Jun\u2013Oct)','Vuli (Nov\u2013Dec)'];
+  const TZ_SEASON_LABELS = ['Kiangazi (Jan-Feb)','Masika (Mar-May)','Kiangazi (Jun-Oct)','Vuli (Nov-Dec)'];
 
   let nCats, categoryLabels, getCategoryIdx, xPositions = null;
   const isClimateOsc = (pr === 'mjo' || pr === 'iod' || pr === 'enso');
@@ -3507,7 +3507,7 @@ function renderPeriodicAverages() {
     getCategoryIdx = ms => eatDate(ms).getUTCHours();
   } else if (pr === 'day' && pg === 'synoptic') {
     nCats = 4;
-    categoryLabels = ['Late Night (00\u201306)','Morning (06\u201312)','Afternoon (12\u201318)','Evening (18\u201300)'];
+    categoryLabels = ['Late Night (00-06)','Morning (06-12)','Afternoon (12-18)','Evening (18-00)'];
     getCategoryIdx = ms => { const h = eatDate(ms).getUTCHours(); if (h < 6) return 0; if (h < 12) return 1; if (h < 18) return 2; return 3; };
   } else if (pr === 'year' && pg === 'month') {
     nCats = 12;
@@ -3665,9 +3665,9 @@ function renderPeriodicAverages() {
   else if (pr === 'year' && pg === 'month') xTitle = t('monthOfYear');
   else if (pr === 'year' && pg === 'week') xTitle = t('weekOfYear');
   else if (pr === 'year' && pg === 'season') xTitle = t('tanzanianSeason');
-  else if (pr === 'mjo') xTitle = 'Madden\u2013Julian Oscillation (MJO) Phase';
+  else if (pr === 'mjo') xTitle = 'Madden-Julian Oscillation (MJO) Phase';
   else if (pr === 'iod') xTitle = 'Indian Ocean Dipole (IOD) Phase';
-  else if (pr === 'enso') xTitle = 'El Ni\u00f1o\u2013Southern Oscillation (ENSO) Phase';
+  else if (pr === 'enso') xTitle = 'El Ni\u00f1o-Southern Oscillation (ENSO) Phase';
   else xTitle = pr;
 
   let xaxisCfg;
