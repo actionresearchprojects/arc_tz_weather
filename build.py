@@ -36,6 +36,7 @@ OUTPUT_FILE = Path("index.html")
 LOGO_TRIM_PATH = Path("logo/logotrim.png")
 LOGO_FULL_PATH = Path("logo/logo.png")
 CYCLES_DIR = Path("data/cycles")
+OPEN_METEO_CSV = Path("data/open-meteo-7.07S39.30E78m.csv")
 
 # Building orientation in degrees from North (clockwise).
 # Set this once the actual building bearing is confirmed.
@@ -66,6 +67,31 @@ def get_logo_b64():
     trim_b64, trim_aspect = _read_logo(LOGO_TRIM_PATH)
     full_b64, full_aspect = _read_logo(LOGO_FULL_PATH)
     return trim_b64, trim_aspect, full_b64, full_aspect
+
+
+def load_open_meteo_wind(path=None):
+    """Parse the Open-Meteo CSV and return arrays of wind speed (km/h) and direction (deg).
+
+    The CSV has two metadata lines, a blank line, then the header row starting with 'time'.
+    We use wind_speed_10m and wind_direction_10m columns to match the station height.
+    Returns a dict with keys 'avgWind' and 'windDir', or None if the file is missing.
+    """
+    csv_path = Path(path) if path else OPEN_METEO_CSV
+    if not csv_path.exists():
+        print(f"  WARNING: Open-Meteo CSV not found at {csv_path}; overlay disabled")
+        return None
+    try:
+        # Skip the two metadata lines and the blank separator line
+        df = pd.read_csv(csv_path, skiprows=3)
+        # Column names include unit suffixes, normalise them
+        df.columns = [c.strip().split(" ")[0] for c in df.columns]
+        speeds = [round(float(v), 1) if pd.notna(v) else None for v in df["wind_speed_10m"]]
+        dirs = [int(round(float(v))) if pd.notna(v) else None for v in df["wind_direction_10m"]]
+        print(f"  Open-Meteo wind: {len(speeds)} hourly readings loaded from {csv_path.name}")
+        return {"avgWind": speeds, "windDir": dirs}
+    except Exception as exc:
+        print(f"  WARNING: Failed to parse Open-Meteo CSV ({exc}); overlay disabled")
+        return None
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -387,12 +413,16 @@ def build_dashboard(csv_path=None):
     print("Computing hourly DRI (ISO 15927-3)...")
     dri_hourly = cross_variable.build_driving_rain_hourly(df_r, precip_incr)
 
+    print("Loading Open-Meteo reference wind data...")
+    open_meteo_raw = load_open_meteo_wind()
+
     data_blob = {
         "meta": periods,
         "charts": all_charts,
         "stats": all_stats,
         "raw": raw_data,
         "driHourly": dri_hourly,
+        "openMeteoRaw": open_meteo_raw,
         "declModelExpired": MAGNETIC_DECLINATION_EXPIRED,
         "declModelExpiry": _IGRF14_EXPIRY.strftime("%B %Y"),
         "dataFreshness": {
@@ -658,6 +688,14 @@ optgroup{font-weight:600;font-style:normal}
           <input id="wr-thresh-input" type="number" min="0" step="0.1" placeholder="e.g. 15" style="width:65px;font-size:11px;padding:2px 4px;border:1px solid #ccc;border-radius:3px" oninput="setWrThreshold(this.value)">
           <span id="wr-thresh-unit" style="font-size:10px;color:#666">km/h</span>
         </div>
+      </div>
+      <!-- Open-Meteo source toggle (shown only when data is available) -->
+      <div id="om-rose-wrap" style="display:none;margin-top:8px;padding-top:6px;border-top:1px solid #eee">
+        <div style="font-size:10px;color:#666;margin-bottom:4px">Data source:</div>
+        <div class="wind-unit-notch">
+          <button id="om-btn-station" class="wind-unit-btn active" onclick="toggleOpenMeteoRose(false)">Station</button><button id="om-btn-om" class="wind-unit-btn" onclick="toggleOpenMeteoRose(true)">Open-Meteo</button>
+        </div>
+        <div id="om-rose-note" style="display:none;font-size:10px;color:#888;line-height:1.3;margin-top:4px">Full year Sep 2025-Sep 2026, 10 m, hourly. Not filtered by date range.</div>
       </div>
     </div>
 
@@ -965,6 +1003,7 @@ const state = {
   indoorVent: null,            // active indoor ventilation overlay params, or null
   dataFilters: [],             // global value filters: [{id, var, op, v1, v2}]
   dataFilterCombine: 'all',    // 'all' (AND) or 'any' (OR)
+  showOpenMeteoRose: false,    // overlay Open-Meteo reference wind rose on wind-rose chart
 };
 
 let currentLang = 'en';
@@ -1308,6 +1347,19 @@ function updateSidebarControls() {
     document.getElementById('wr-slider-bar').style.display = 'none';
     document.getElementById('wr-slider-cb').checked = false;
     _wrSlider.on = false;
+  }
+  // Show Open-Meteo source toggle only when wind-rose is active and data is available
+  const omWrap = document.getElementById('om-rose-wrap');
+  if (omWrap) {
+    omWrap.style.display = (isWindRose && ALL_DATA.openMeteoRaw) ? 'block' : 'none';
+    if (isWindRose && ALL_DATA.openMeteoRaw) {
+      const btnStation = document.getElementById('om-btn-station');
+      const btnOm = document.getElementById('om-btn-om');
+      const note = document.getElementById('om-rose-note');
+      if (btnStation) btnStation.classList.toggle('active', !state.showOpenMeteoRose);
+      if (btnOm) btnOm.classList.toggle('active', state.showOpenMeteoRose);
+      if (note) note.style.display = state.showOpenMeteoRose ? 'block' : 'none';
+    }
   }
   // Show/hide wind series checkboxes
   const showWindSeries = ct === 'wind-timeseries' || ct === 'wind-category-dist';
@@ -1786,6 +1838,16 @@ function _wrSliderRender(animate) {
     lo.autosize = true;
     lo.font = {family: 'Ubuntu, sans-serif', size: 12};
     return lo;
+  }
+
+  // When Open-Meteo source is selected, show its rose instead of the station rose.
+  // Slider mode still works but shows station data per window; Open-Meteo is full-year
+  // and doesn't make sense to slice by time window, so we just show the full OM rose.
+  if (state.showOpenMeteoRose) {
+    const omTraces = _buildOpenMeteoWindRose();
+    Plotly.react(chartEl, omTraces, makeLayout(needR), cfg);
+    _addWrArrows(chartEl);
+    return;
   }
 
   if (!animate || !_wrSlider.curR) {
@@ -2274,6 +2336,46 @@ function _buildWindRose(raw) {
 
   return {data:traces, calmPct, threshStats,
     layout:{polar:{angularaxis:{direction:'clockwise',rotation:90,tickmode:'array',tickvals:Array.from({length:16},(_,i)=>i*22.5),ticktext:_C16},radialaxis:{ticksuffix:'%',angle:45}},barmode:'stack',bargap:0,showlegend:true,legend:{x:1.1,y:1}}};
+}
+
+// ── Open-Meteo reference wind rose ───────────────────────────────────────────
+// Builds barpolar traces from the full-year Open-Meteo hourly wind data.
+// Uses the same filled style as the station rose since it replaces (not overlays) it.
+// The full year Sep 2025-Sep 2026, 10 m height, hourly resolution.
+function _buildOpenMeteoWindRose() {
+  const omRaw = ALL_DATA.openMeteoRaw;
+  if (!omRaw || !omRaw.avgWind || !omRaw.windDir) return [];
+  const total = omRaw.avgWind.filter(v => v != null).length;
+  if (!total) return [];
+  const binLabels = state.windUnit === 'ms' ? _WL_MS : state.windUnit === 'kn' ? _WL_KN : _WL;
+  const traces = binLabels.map((lbl, li) => {
+    const lo = _WB[li], hi = _WB[li+1];
+    const cnt = {}; _C16.forEach(d => cnt[d] = 0);
+    omRaw.avgWind.forEach((v, i) => {
+      if (v == null || v <= _CALM_KPH || v < lo || v >= hi) return;
+      const d = _cBin(omRaw.windDir[i]); if (d) cnt[d]++;
+    });
+    const rVals = _C16.map(d => total ? Math.round(cnt[d] / total * 10000) / 100 : 0);
+    return {
+      type: 'barpolar',
+      r: rVals,
+      theta: _C16,
+      name: lbl + ' ' + wLabel(),
+      marker: {color: _WC[li]},
+    };
+  });
+  return traces;
+}
+
+function toggleOpenMeteoRose(on) {
+  state.showOpenMeteoRose = on;
+  const btnStation = document.getElementById('om-btn-station');
+  const btnOm = document.getElementById('om-btn-om');
+  const note = document.getElementById('om-rose-note');
+  if (btnStation) btnStation.classList.toggle('active', !on);
+  if (btnOm) btnOm.classList.toggle('active', on);
+  if (note) note.style.display = on ? 'block' : 'none';
+  updatePlot();
 }
 
 function _buildWindDist(raw) {
@@ -3237,7 +3339,12 @@ function updatePlot() {
     layout.margin = layout.margin || {l: 60, r: 40, t: 30, b: 50};
     layout.autosize = true;
     layout.font = {family: 'Ubuntu, sans-serif', size: 12};
-    Plotly.react(chartEl, _computedChart.data, layout, config);
+    let plotData = _computedChart.data;
+    if (ct === 'wind-rose' && state.showOpenMeteoRose) {
+      // Replace station rose with Open-Meteo rose (either/or, not overlay)
+      plotData = _buildOpenMeteoWindRose();
+    }
+    Plotly.react(chartEl, plotData, layout, config);
     if (ct === 'wind-rose') _addWrArrows(chartEl);
     state.savedZoom = null;
     return;
