@@ -85,10 +85,15 @@ def load_open_meteo_wind(path=None):
         df = pd.read_csv(csv_path, skiprows=3)
         # Column names include unit suffixes, normalise them
         df.columns = [c.strip().split(" ")[0] for c in df.columns]
+        # Timestamps are UTC (utc_offset_seconds=0 in metadata)
+        ts_ms = [
+            int(pd.Timestamp(t, tz="UTC").timestamp() * 1000)
+            for t in df["time"]
+        ]
         speeds = [round(float(v), 1) if pd.notna(v) else None for v in df["wind_speed_10m"]]
         dirs = [int(round(float(v))) if pd.notna(v) else None for v in df["wind_direction_10m"]]
         print(f"  Open-Meteo wind: {len(speeds)} hourly readings loaded from {csv_path.name}")
-        return {"avgWind": speeds, "windDir": dirs}
+        return {"ts": ts_ms, "avgWind": speeds, "windDir": dirs}
     except Exception as exc:
         print(f"  WARNING: Failed to parse Open-Meteo CSV ({exc}); overlay disabled")
         return None
@@ -1840,12 +1845,12 @@ function _wrSliderRender(animate) {
     return lo;
   }
 
-  // When Open-Meteo source is selected, show its rose instead of the station rose.
-  // Slider mode still works but shows station data per window; Open-Meteo is full-year
-  // and doesn't make sense to slice by time window, so we just show the full OM rose.
+  // When Open-Meteo source is selected, filter its data to the current slider window
+  // and build a rose from that subset, so slider mode works just as with station data.
   if (state.showOpenMeteoRose) {
-    const omTraces = _buildOpenMeteoWindRose();
-    Plotly.react(chartEl, omTraces, makeLayout(needR), cfg);
+    const omFiltered = _filterOpenMeteoRaw(winStart, winEnd);
+    const omTraces = _buildOpenMeteoWindRose(omFiltered);
+    Plotly.react(chartEl, omTraces.length ? omTraces : wr.data, makeLayout(needR), cfg);
     _addWrArrows(chartEl);
     return;
   }
@@ -2339,11 +2344,11 @@ function _buildWindRose(raw) {
 }
 
 // ── Open-Meteo reference wind rose ───────────────────────────────────────────
-// Builds barpolar traces from the full-year Open-Meteo hourly wind data.
-// Uses the same filled style as the station rose since it replaces (not overlays) it.
-// The full year Sep 2025-Sep 2026, 10 m height, hourly resolution.
-function _buildOpenMeteoWindRose() {
-  const omRaw = ALL_DATA.openMeteoRaw;
+// Builds barpolar traces from Open-Meteo hourly wind data.
+// omRaw: optional pre-filtered subset; defaults to ALL_DATA.openMeteoRaw (full year).
+// Uses the same filled style as the station rose.
+function _buildOpenMeteoWindRose(omRaw) {
+  if (!omRaw) omRaw = ALL_DATA.openMeteoRaw;
   if (!omRaw || !omRaw.avgWind || !omRaw.windDir) return [];
   const total = omRaw.avgWind.filter(v => v != null).length;
   if (!total) return [];
@@ -2365,6 +2370,20 @@ function _buildOpenMeteoWindRose() {
     };
   });
   return traces;
+}
+
+// Filter ALL_DATA.openMeteoRaw to a UTC ms time window [start, end).
+function _filterOpenMeteoRaw(start, end) {
+  const omRaw = ALL_DATA.openMeteoRaw;
+  if (!omRaw || !omRaw.ts) return null;
+  const indices = [];
+  omRaw.ts.forEach((t, i) => { if (t >= start && t < end) indices.push(i); });
+  if (!indices.length) return null;
+  return {
+    ts:      indices.map(i => omRaw.ts[i]),
+    avgWind: indices.map(i => omRaw.avgWind[i]),
+    windDir: indices.map(i => omRaw.windDir[i]),
+  };
 }
 
 function toggleOpenMeteoRose(on) {
@@ -3341,8 +3360,11 @@ function updatePlot() {
     layout.font = {family: 'Ubuntu, sans-serif', size: 12};
     let plotData = _computedChart.data;
     if (ct === 'wind-rose' && state.showOpenMeteoRose) {
-      // Replace station rose with Open-Meteo rose (either/or, not overlay)
-      plotData = _buildOpenMeteoWindRose();
+      // Replace station rose with Open-Meteo rose, filtered to same time range as station
+      const {start: omStart, end: omEnd} = getTimeRange();
+      const omFiltered = (state.timeMode === 'all') ? null : _filterOpenMeteoRaw(omStart, omEnd);
+      const omTraces = _buildOpenMeteoWindRose(omFiltered);
+      plotData = omTraces.length ? omTraces : _computedChart.data;
     }
     Plotly.react(chartEl, plotData, layout, config);
     if (ct === 'wind-rose') _addWrArrows(chartEl);
