@@ -1739,17 +1739,23 @@ function wrSliderGranChanged() {
 function _wrSliderCalcMaxR() {
   // Use 90th percentile of per-window peak stacked % as the base scale.
   // Outlier windows dynamically expand the axis in _wrSliderRender.
-  const gran = parseInt(document.getElementById('wr-slider-granularity').value);
   const steps = _wrSlider.steps;
   const stride = Math.max(1, Math.floor(steps.length / 200));
   const peaks = [];
   for (let si = 0; si < steps.length; si += stride) {
-    const raw = filterRaw(steps[si], _wrSlider.stepEnds[si]);
-    if (!raw || !raw.ts.length) continue;
-    const wr = _buildWindRose(raw);
+    let wrData;
+    if (state.showOpenMeteoRose) {
+      const omF = _filterOpenMeteoRaw(steps[si], _wrSlider.stepEnds[si]);
+      wrData = omF ? _buildOpenMeteoWindRose(omF) : [];
+    } else {
+      const raw = filterRaw(steps[si], _wrSlider.stepEnds[si]);
+      if (!raw || !raw.ts.length) continue;
+      wrData = _buildWindRose(raw).data;
+    }
     const sums = new Array(16).fill(0);
-    wr.data.filter(tr=>tr.type==='barpolar').forEach(tr => { tr.r.forEach((v, j) => { sums[j] += v; }); });
-    peaks.push(Math.max(...sums));
+    wrData.filter(tr=>tr.type==='barpolar').forEach(tr => { tr.r.forEach((v, j) => { sums[j] += v; }); });
+    const peak = Math.max(...sums);
+    if (peak > 0) peaks.push(peak);
   }
   if (!peaks.length) { _wrSlider.maxR = 10; return; }
   peaks.sort((a, b) => a - b);
@@ -1759,9 +1765,19 @@ function _wrSliderCalcMaxR() {
 }
 
 function _wrSliderBuildSteps() {
-  const r = ALL_DATA.raw;
-  if (!r || !r.ts.length) return;
-  const {start, end} = getTimeRange();
+  // When Open-Meteo is selected, span its full date range; otherwise use station range.
+  let start, end;
+  if (state.showOpenMeteoRose && ALL_DATA.openMeteoRaw && ALL_DATA.openMeteoRaw.ts && ALL_DATA.openMeteoRaw.ts.length) {
+    const omTs = ALL_DATA.openMeteoRaw.ts;
+    start = omTs[0];
+    end = omTs[omTs.length - 1] + 3600000; // one hour past last reading
+  } else {
+    const r = ALL_DATA.raw;
+    if (!r || !r.ts.length) return;
+    const range = getTimeRange();
+    start = range.start;
+    end = range.end;
+  }
   const gran = parseInt(document.getElementById('wr-slider-granularity').value);
   const steps = [];
   const stepEnds = [];
@@ -1845,20 +1861,28 @@ function _wrSliderRender(animate) {
     return lo;
   }
 
-  // When Open-Meteo source is selected, filter its data to the current slider window
-  // and build a rose from that subset, so slider mode works just as with station data.
+  // Choose which traces/targetR to use depending on data source
+  let activeTraces, activeTargetR, activeNeedR;
   if (state.showOpenMeteoRose) {
     const omFiltered = _filterOpenMeteoRaw(winStart, winEnd);
-    const omTraces = _buildOpenMeteoWindRose(omFiltered);
-    Plotly.react(chartEl, omTraces.length ? omTraces : wr.data, makeLayout(needR), cfg);
-    _addWrArrows(chartEl);
-    return;
+    activeTraces = omFiltered ? _buildOpenMeteoWindRose(omFiltered) : [];
+    if (!activeTraces.length) { _addWrArrows(chartEl); return; }
+    // Adaptive radial axis: same p90-base + outlier-expand logic as station
+    const omSums = new Array(16).fill(0);
+    activeTraces.filter(tr=>tr.type==='barpolar').forEach(tr => { tr.r.forEach((v,j) => { omSums[j] += v; }); });
+    const omPeak = Math.max(...omSums);
+    activeNeedR = omPeak > baseMax ? Math.ceil(omPeak * 1.05) : baseMax;
+    activeTargetR = activeTraces.map(tr => tr.r.slice());
+  } else {
+    activeTraces = wr.data;
+    activeTargetR = targetR;
+    activeNeedR = needR;
   }
 
-  if (!animate || !_wrSlider.curR) {
-    _wrSlider.curR = targetR;
-    _wrSlider.dispR = needR;
-    Plotly.react(chartEl, wr.data, makeLayout(needR), cfg);
+  if (!animate || !_wrSlider.curR || _wrSlider.curR.length !== activeTraces.length) {
+    _wrSlider.curR = activeTargetR;
+    _wrSlider.dispR = activeNeedR;
+    Plotly.react(chartEl, activeTraces, makeLayout(activeNeedR), cfg);
     _addWrArrows(chartEl);
     return;
   }
@@ -1874,22 +1898,22 @@ function _wrSliderRender(animate) {
     let p = (now - t0) / dur;
     if (p >= 1) p = 1;
     p = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
-    const interpData = wr.data.map((tr, ti) => {
-      const r = fromR[ti].map((v, di) => v + (targetR[ti][di] - v) * p);
+    const interpData = activeTraces.map((tr, ti) => {
+      const r = fromR[ti].map((v, di) => v + (activeTargetR[ti][di] - v) * p);
       return Object.assign({}, tr, {r: r});
     });
-    const curRange = fromRange + (needR - fromRange) * p;
+    const curRange = fromRange + (activeNeedR - fromRange) * p;
     Plotly.react(chartEl, interpData, makeLayout(curRange), cfg);
     if (p < 1) {
       _wrSlider.animId = requestAnimationFrame(step);
     } else {
-      _wrSlider.curR = targetR;
-      _wrSlider.dispR = needR;
+      _wrSlider.curR = activeTargetR;
+      _wrSlider.dispR = activeNeedR;
       _wrSlider.animId = null;
     }
   }
   _wrSlider.animId = requestAnimationFrame(step);
-  _wrSlider.curR = targetR;
+  _wrSlider.curR = activeTargetR;
 }
 
 function wrSliderPlayPause() {
@@ -2394,7 +2418,17 @@ function toggleOpenMeteoRose(on) {
   if (btnStation) btnStation.classList.toggle('active', !on);
   if (btnOm) btnOm.classList.toggle('active', on);
   if (note) note.style.display = on ? 'block' : 'none';
-  updatePlot();
+  // Reset animation state and rebuild slider steps for the new data source
+  _wrSlider.curR = null;
+  _wrSlider.dispR = null;
+  if (_wrSlider.animId) { cancelAnimationFrame(_wrSlider.animId); _wrSlider.animId = null; }
+  if (_wrSlider.on) {
+    _wrSliderBuildSteps();
+    _wrSliderCalcMaxR();
+    _wrSliderRender(false);
+  } else {
+    updatePlot();
+  }
 }
 
 function _buildWindDist(raw) {
