@@ -1821,7 +1821,7 @@ function _wrSliderDateLabel(ms, gran) {
 }
 
 function _wrSliderRender(animate) {
-  if (!_wrSlider.steps.length || !ALL_DATA.raw) return;
+  if (!_wrSlider.steps.length) return;
   const gran = parseInt(document.getElementById('wr-slider-granularity').value);
   const winStart = _wrSlider.steps[_wrSlider.idx];
   const winEnd = _wrSlider.stepEnds[_wrSlider.idx];
@@ -1833,26 +1833,13 @@ function _wrSliderRender(animate) {
     document.getElementById('wr-sl-date').textContent = _wrSliderDateLabel(winStart, gran);
   }
 
-  // Filter raw data to window
-  const raw = filterRaw(winStart, winEnd);
-  if (!raw || !raw.ts.length) return;
-
-  // Build target wind rose
-  const wr = _buildWindRose(raw);
-  const targetR = wr.data.map(tr => tr.r.slice());
-
-  // Determine axis range: use base p90, but expand for outliers
-  const sums = new Array(16).fill(0);
-  wr.data.filter(tr=>tr.type==='barpolar').forEach(tr => { tr.r.forEach((v, j) => { sums[j] += v; }); });
-  const framePeak = Math.max(...sums);
-  const baseMax = _wrSlider.maxR || 10;
-  const needR = framePeak > baseMax ? Math.ceil(framePeak * 1.05) : baseMax;
-
   const chartEl = document.getElementById('chart');
   const cfg = {responsive: true, displayModeBar: false};
+  const baseMax = _wrSlider.maxR || 10;
 
-  function makeLayout(rangeMax) {
-    const lo = Object.assign({}, wr.layout);
+  // Shared layout builder — works for both sources
+  function makeLayout(rangeMax, baseLayout) {
+    const lo = Object.assign({}, baseLayout);
     lo.polar = Object.assign({}, lo.polar);
     lo.polar.radialaxis = Object.assign({}, lo.polar.radialaxis, {range: [0, rangeMax]});
     lo.margin = {l: 60, r: 40, t: 30, b: 50};
@@ -1861,28 +1848,41 @@ function _wrSliderRender(animate) {
     return lo;
   }
 
-  // Choose which traces/targetR to use depending on data source
-  let activeTraces, activeTargetR, activeNeedR;
+  // ── Choose data source ────────────────────────────────────────────────────
+  let activeTraces, activeTargetR, activeNeedR, activeLayout;
+
   if (state.showOpenMeteoRose) {
+    // Open-Meteo path — does not depend on station raw data at all
     const omFiltered = _filterOpenMeteoRaw(winStart, winEnd);
     activeTraces = omFiltered ? _buildOpenMeteoWindRose(omFiltered) : [];
-    if (!activeTraces.length) { _addWrArrows(chartEl); return; }
-    // Adaptive radial axis: same p90-base + outlier-expand logic as station
+    if (!activeTraces.length) return; // no OM data in this window
+    // Reuse the wind rose layout from the pre-built chart (polar axis config)
+    const wrChart = (ALL_DATA.charts || []).find(c => c.id === 'wind-rose');
+    activeLayout = (wrChart && wrChart.layout) ? wrChart.layout : {polar:{angularaxis:{direction:'clockwise',rotation:90},radialaxis:{ticksuffix:'%',angle:45}},barmode:'stack',bargap:0,showlegend:true,legend:{x:1.1,y:1}};
     const omSums = new Array(16).fill(0);
     activeTraces.filter(tr=>tr.type==='barpolar').forEach(tr => { tr.r.forEach((v,j) => { omSums[j] += v; }); });
     const omPeak = Math.max(...omSums);
     activeNeedR = omPeak > baseMax ? Math.ceil(omPeak * 1.05) : baseMax;
     activeTargetR = activeTraces.map(tr => tr.r.slice());
   } else {
+    // Station path — original logic unchanged
+    if (!ALL_DATA.raw) return;
+    const raw = filterRaw(winStart, winEnd);
+    if (!raw || !raw.ts.length) return;
+    const wr = _buildWindRose(raw);
     activeTraces = wr.data;
-    activeTargetR = targetR;
-    activeNeedR = needR;
+    activeLayout = wr.layout;
+    activeTargetR = wr.data.map(tr => tr.r.slice());
+    const sums = new Array(16).fill(0);
+    wr.data.filter(tr=>tr.type==='barpolar').forEach(tr => { tr.r.forEach((v, j) => { sums[j] += v; }); });
+    const framePeak = Math.max(...sums);
+    activeNeedR = framePeak > baseMax ? Math.ceil(framePeak * 1.05) : baseMax;
   }
 
   if (!animate || !_wrSlider.curR || _wrSlider.curR.length !== activeTraces.length) {
     _wrSlider.curR = activeTargetR;
     _wrSlider.dispR = activeNeedR;
-    Plotly.react(chartEl, activeTraces, makeLayout(activeNeedR), cfg);
+    Plotly.react(chartEl, activeTraces, makeLayout(activeNeedR, activeLayout), cfg);
     _addWrArrows(chartEl);
     return;
   }
@@ -1903,7 +1903,7 @@ function _wrSliderRender(animate) {
       return Object.assign({}, tr, {r: r});
     });
     const curRange = fromRange + (activeNeedR - fromRange) * p;
-    Plotly.react(chartEl, interpData, makeLayout(curRange), cfg);
+    Plotly.react(chartEl, interpData, makeLayout(curRange, activeLayout), cfg);
     if (p < 1) {
       _wrSlider.animId = requestAnimationFrame(step);
     } else {
