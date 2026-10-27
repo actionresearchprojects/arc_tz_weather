@@ -4218,6 +4218,16 @@ function svgToCanvas(svgStr, W, H, scale) {
 // CSV and XLSX are both produced from the same array of rows, so the two
 // formats cannot drift apart.
 
+// Format values for export: Date objects → 'YYYY-MM-DD HH:mm:ss', others pass through.
+function fmtExportVal(v) {
+  if (v instanceof Date && !isNaN(v)) {
+    const p = n => String(n).padStart(2, '0');
+    return v.getFullYear() + '-' + p(v.getMonth() + 1) + '-' + p(v.getDate()) + ' ' +
+           p(v.getHours()) + ':' + p(v.getMinutes()) + ':' + p(v.getSeconds());
+  }
+  return v;
+}
+
 function csvField(v) {
   const s = String(v == null ? '' : v);
   return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
@@ -4270,17 +4280,17 @@ function chartExportRows() {
   // which is what a spreadsheet wants. Scatter and histogram data have no shared
   // x, so those fall back to one row per point.
   const canPivot = traces.every(tr =>
-    tr.x && tr.y && tr.x.length === tr.y.length && tr.x.every(v => v == null || typeof v === 'string'));
+    tr.x && tr.y && tr.x.length === tr.y.length && tr.x.every(v => v == null || typeof v === 'string' || v instanceof Date));
 
   if (canPivot) {
     const pivot = new Map();
     traces.forEach((tr, ti) => {
       for (let i = 0; i < tr.x.length; i++) {
-        const k = tr.x[i];
+        const k = fmtExportVal(tr.x[i]);
         if (k == null) continue;
         let row = pivot.get(k);
         if (!row) { row = new Array(traces.length).fill(''); pivot.set(k, row); }
-        row[ti] = tr.y[i] == null ? '' : tr.y[i];
+        row[ti] = tr.y[i] == null ? '' : fmtExportVal(tr.y[i]);
       }
     });
     let keys = [...pivot.keys()];
@@ -4293,8 +4303,8 @@ function chartExportRows() {
     traces.forEach((tr, ti) => {
       const n = Math.max((tr.x && tr.x.length) || 0, (tr.y && tr.y.length) || 0);
       for (let i = 0; i < n; i++) {
-        const xv = tr.x ? tr.x[i] : '';
-        const yv = tr.y ? tr.y[i] : '';
+        const xv = tr.x ? fmtExportVal(tr.x[i]) : '';
+        const yv = tr.y ? fmtExportVal(tr.y[i]) : '';
         if (xv == null && yv == null) continue;
         rows.push([names[ti], xv == null ? '' : xv, yv == null ? '' : yv]);
       }
