@@ -421,6 +421,7 @@ def build_dashboard(csv_path=None):
     print("Loading Open-Meteo reference wind data...")
     open_meteo_raw = load_open_meteo_wind()
 
+    periods["sensorId"] = "30B40014"
     data_blob = {
         "meta": periods,
         "charts": all_charts,
@@ -4210,13 +4211,18 @@ function chartExportRows() {
 
   const xLabel = axisLabelText(layout.xaxis) || 'X';
   const yLabel = axisLabelText(layout.yaxis) || 'Value';
-  const names = traces.map((tr, i) =>
-    (tr.name ? String(tr.name).replace(/<[^>]*>/g, '').trim() : '') || ('Series ' + (i + 1)));
+  const names = traces.map((tr, i) => {
+    let n = (tr.name ? String(tr.name).replace(/<[^>]*>/g, '').trim() : '') || ('Series ' + (i + 1));
+    const lid = tr.meta && tr.meta.loggerId;
+    if (lid) n += ' [' + lid + ']';
+    return n;
+  });
 
   const rows = [];
   const titleEl = document.getElementById('bar-title');
   if (titleEl && titleEl.textContent) rows.push([titleEl.textContent]);
   rows.push(['Exported', new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC']);
+  if (typeof ALL_DATA !== 'undefined' && ALL_DATA.meta && ALL_DATA.meta.sensorId) rows.push(['Sensor ID', ALL_DATA.meta.sensorId]);
   rows.push([]);
 
   // A shared x-axis (timestamps, categories) pivots into one column per series,
