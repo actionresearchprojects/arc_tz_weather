@@ -4249,11 +4249,12 @@ function visibleDataTraces(traces) {
   return traces.filter(tr => {
     if (tr.visible === false || tr.visible === 'legendonly') return false;
     if (tr.type === 'table') return false;
-    const n = Math.max((tr.x && tr.x.length) || 0, (tr.y && tr.y.length) || 0);
+    const n = Math.max((tr.x && tr.x.length) || 0, (tr.y && tr.y.length) || 0, (tr.r && tr.r.length) || 0);
     if (n === 0) return false;
     const xNull = !tr.x || tr.x.every(v => v == null);
     const yNull = !tr.y || tr.y.every(v => v == null);
-    if (xNull && yNull) return false;
+    const rNull = !tr.r || tr.r.every(v => v == null);
+    if (xNull && yNull && rNull) return false;
     return true;
   });
 }
@@ -4282,6 +4283,23 @@ function chartExportRows() {
   rows.push(['Exported', new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC']);
   if (typeof ALL_DATA !== 'undefined' && ALL_DATA.meta && ALL_DATA.meta.sensorId) rows.push(['Sensor ID', ALL_DATA.meta.sensorId]);
   rows.push([]);
+
+  // Polar traces (wind rose, DRI rose) pivot on theta (direction).
+  const isPolar = traces.length > 0 && traces.every(tr => tr.r && tr.theta && tr.r.length === tr.theta.length);
+  if (isPolar) {
+    const pivot = new Map();
+    traces.forEach((tr, ti) => {
+      for (let i = 0; i < tr.theta.length; i++) {
+        const k = String(tr.theta[i]);
+        let row = pivot.get(k);
+        if (!row) { row = new Array(traces.length).fill(''); pivot.set(k, row); }
+        row[ti] = tr.r[i] == null ? '' : tr.r[i];
+      }
+    });
+    rows.push(['Direction', ...names]);
+    pivot.forEach((vals, dir) => rows.push([dir, ...vals]));
+    return rows;
+  }
 
   // A shared x-axis (timestamps, categories) pivots into one column per series,
   // which is what a spreadsheet wants. Scatter and histogram data have no shared
