@@ -4214,10 +4214,10 @@ function chartExportRows() {
   const yLabel = axisLabelText(layout.yaxis) || 'Value';
   const names = traces.map((tr, i) => {
     let n = (tr.name ? String(tr.name).replace(/<[^>]*>/g, '').trim() : '') || ('Series ' + (i + 1));
-    const lid = tr.meta && tr.meta.loggerId;
-    if (lid) n += ' [' + lid + ']';
     const u = tr.meta && tr.meta.unit;
     if (u) n += ' (' + u + ')';
+    const lid = tr.meta && tr.meta.loggerId;
+    if (lid) n += ' [' + lid + ']';
     return n;
   });
 
