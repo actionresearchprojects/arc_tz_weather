@@ -4215,6 +4215,8 @@ function chartExportRows() {
     let n = (tr.name ? String(tr.name).replace(/<[^>]*>/g, '').trim() : '') || ('Series ' + (i + 1));
     const lid = tr.meta && tr.meta.loggerId;
     if (lid) n += ' [' + lid + ']';
+    const u = tr.meta && tr.meta.unit;
+    if (u) n += ' (' + u + ')';
     return n;
   });
 
