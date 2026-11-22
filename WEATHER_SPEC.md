@@ -515,7 +515,7 @@ Ventilation Windows
 The sidebar content changes based on the selected chart type (matching the existing project's pattern where line/histogram/comfort controls show/hide).
 
 **Always visible:**
-- **Date Range**: Start/end date pickers + hierarchical period selector (Year > Season > Month > Week > Day). Tanzanian seasons: Kiangazi (Jan-Feb), Masika (Mar-May), Kiangazi (Jun-Oct), Vuli (Nov-Dec).
+- **Date Range**: Start/end date pickers + hierarchical period selector (Year > Season > Month > Week > Day). Tanzanian seasons: Kiangazi (Jan-Feb), Masika (Mar-May), Kipupwe (Jun-Sep), Vuli (Oct-Dec) (Kisemvule, agreed 20-11-2026).
 - **Data freshness**: Footer showing when the Omnisense data was last updated, with stale-data warning if older than 2 days.
 
 **Wind charts:**

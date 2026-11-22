@@ -3300,7 +3300,7 @@ function getTimeRange() {
     case 'season': {
       if (!state.selectedSeason) return {start: min, end: max};
       const {year: y, season: si} = state.selectedSeason;
-      const sm = [[0,1],[2,4],[5,9],[10,11]][si];
+      const sm = [[0,1],[2,4],[5,8],[9,11]][si];
       return {start: Date.UTC(y, sm[0], 1), end: Date.UTC(y, sm[1]+1, 0, 23, 59, 59, 999)};
     }
     case 'month': {
@@ -3659,8 +3659,8 @@ function renderPeriodicAverages() {
   const ct = state.chartType;
   const pr = state.periodCycle, pg = state.periodGroupBy;
   const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const TZ_SEASON_IDX = [0,0,1,1,1,2,2,2,2,2,3,3];
-  const TZ_SEASON_LABELS = ['Kiangazi (Jan-Feb)','Masika (Mar-May)','Kiangazi (Jun-Oct)','Vuli (Nov-Dec)'];
+  const TZ_SEASON_IDX = [0,0,1,1,1,2,2,2,2,3,3,3];
+  const TZ_SEASON_LABELS = ['Kiangazi (Jan-Feb)','Masika (Mar-May)','Kipupwe (Jun-Sep)','Vuli (Oct-Dec)'];
 
   let nCats, categoryLabels, getCategoryIdx, xPositions = null;
   const isClimateOsc = (pr === 'mjo' || pr === 'iod' || pr === 'enso');
@@ -3684,7 +3684,7 @@ function renderPeriodicAverages() {
   } else if (pr === 'year' && pg === 'season') {
     nCats = 4;
     categoryLabels = TZ_SEASON_LABELS;
-    xPositions = [0.5, 3, 7, 10.5];
+    xPositions = [0.5, 3, 6.5, 10];
     getCategoryIdx = ms => TZ_SEASON_IDX[eatDate(ms).getUTCMonth()];
   } else if (pr === 'mjo') {
     nCats = 8;

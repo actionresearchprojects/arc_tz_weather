@@ -215,12 +215,13 @@ VENTILATION_COLORS = {
     "closed": "#d62728",
 }
 
-# Tanzanian seasons
+# Tanzanian seasons (Kisemvule, agreed 20-11-2026): Kiangazi Jan-Feb, Masika Mar-May,
+# Kipupwe Jun-Sep, Vuli Oct-Dec. Names must be unique: get_season() looks a season up by name.
 SEASONS = [
     {"name": "Kiangazi", "name_sw": "Kiangazi", "months": [1, 2]},
     {"name": "Masika", "name_sw": "Masika", "months": [3, 4, 5]},
-    {"name": "Kiangazi", "name_sw": "Kiangazi", "months": [6, 7, 8, 9, 10]},
-    {"name": "Vuli", "name_sw": "Vuli", "months": [11, 12]},
+    {"name": "Kipupwe", "name_sw": "Kipupwe", "months": [6, 7, 8, 9]},
+    {"name": "Vuli", "name_sw": "Vuli", "months": [10, 11, 12]},
 ]
 
 
@@ -593,8 +594,8 @@ def get_season(month):
 _SEASON_BOUNDARY_LABELS = {
     1:  "January Dry Season (Kiangazi)",
     3:  "Long Rains (Masika)",
-    6:  "June Dry Season (Kiangazi)",
-    11: "Short Rains (Vuli)",
+    6:  "Cool Season (Kipupwe)",
+    10: "Short Rains (Vuli)",
 }
 
 
@@ -607,7 +608,7 @@ def get_season_boundaries(df):
     max_date = df["timestamp"].max()
 
     # Season start months
-    season_starts = [1, 3, 6, 11]
+    season_starts = [1, 3, 6, 10]
     year = min_date.year
     while year <= max_date.year + 1:
         for m in season_starts:
